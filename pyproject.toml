@@ -1,0 +1,11 @@
+[project]
+name = "chat-recall"
+version = "0.1.0"
+description = "Local ChatGPT passage search with online-led collaborative development"
+requires-python = ">=3.11"
+dependencies = []
+license = "MIT"
+
+[tool.chat-recall]
+development-authority = "online-model"
+runtime-models = "optional"

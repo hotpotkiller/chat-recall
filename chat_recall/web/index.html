@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Chat Recall · Find the conversation</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Chat Recall home"><span class="brand-mark" aria-hidden="true">↶</span><span>Chat Recall<span class="brand-sub">Your words, within reach</span></span></a>
+    <nav aria-label="Archive actions">
+      <button id="pair-button" class="quiet-button" type="button" aria-expanded="false" aria-controls="pair-panel">Browser helper</button>
+      <button id="import-button" class="import-button" type="button"><span aria-hidden="true">＋</span> Import history</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="introduction" aria-labelledby="page-title">
+      <div class="eyebrow"><span class="status-dot" aria-hidden="true"></span> A private conversation archive</div>
+      <h1 id="page-title">You’ve talked about it.<br><span>Find it again.</span></h1>
+      <p>Search the words you remember. Read the exchange they came from.</p>
+    </section>
+
+    <section id="pair-panel" class="settings-panel" hidden aria-labelledby="pair-heading">
+      <div><h2 id="pair-heading">Connect the browser helper</h2><p>The helper imports ChatGPT history into this local archive. Live syncing is experimental; project and archived-chat coverage require verification.</p></div>
+      <ol><li>Load the included <code>browser-extension</code> folder as an unpacked extension.</li><li>Add its exact <code>chrome-extension://…</code> origin to the server’s extension allowlist, then restart the server.</li><li>Open the helper, pair this endpoint and token, then run an initial import.</li></ol>
+      <div class="pair-values"><label>Local endpoint<input id="pair-endpoint" readonly></label><label>Pairing token<input id="pair-token" type="password" readonly autocomplete="off"></label><button id="copy-token" type="button" class="quiet-button">Copy token</button></div>
+      <p class="small">Treat this token as access to your local archive. Keep it out of Git, screenshots, and shared tasks.</p>
+    </section>
+
+    <form id="search-form" class="search-panel" role="search">
+      <label for="query" class="sr-only">Search your conversations</label>
+      <div class="search-input-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" type="search" placeholder="A phrase, an idea, a conversation…" autocomplete="off" spellcheck="false"><kbd aria-hidden="true">⌘ K</kbd><button class="search-submit" type="submit">Search <span aria-hidden="true">↗</span></button></div>
+      <div class="search-options">
+        <fieldset class="mode-switch"><legend class="sr-only">Search mode</legend><label><input type="radio" name="mode" value="exact" checked><span>Exact words</span></label><label><input type="radio" name="mode" value="smart"><span>Smart search</span></label></fieldset>
+        <div class="filters"><label class="case-filter"><input id="case-sensitive" type="checkbox"> Match case</label><label><span class="sr-only">Speaker</span><select id="role"><option value="">All speakers</option><option value="user">My messages</option><option value="assistant">AI replies</option></select></label><label><span class="sr-only">Account</span><select id="account"><option value="">All accounts</option></select></label></div>
+      </div>
+    </form>
+
+    <div class="archive-status" aria-live="polite"><span id="archive-count">Loading archive…</span><div class="semantic-controls"><span id="semantic-status">Checking search readiness…</span><button id="index-semantics" type="button" hidden>Index meaning</button></div></div>
+    <p id="mode-note" class="mode-note">Exact for remembered words; Smart for related ideas when wording differs (e.g., “fix wifi” finds “network troubleshooting”). Capitalization is ignored unless “Match case” is enabled.</p>
+    <label id="cloud-option" class="cloud-option" hidden><input id="cloud-rerank" type="checkbox"> Cloud rerank <span>Send this query and selected candidate passages to the configured cloud provider.</span></label>
+    <div id="notice" class="notice" role="status" hidden></div>
+
+    <section class="workspace" id="workspace" aria-label="Search results and conversation">
+      <div class="results-pane">
+        <div class="results-heading"><h2 id="results-title">Start with something you remember</h2><span id="result-count" class="small"></span></div>
+        <div id="results" aria-live="polite" aria-busy="false">
+          <div class="empty-state"><div class="empty-symbol" aria-hidden="true">“</div><h3>A sentence can bring it all back.</h3><p>Try a distinctive word or a phrase. Import your ChatGPT export to begin, or explore the synthetic demo archive.</p><div class="suggestions"><button type="button" data-query="recovery key">recovery key</button><button type="button" data-query="ERR_CFG_204">ERR_CFG_204</button><button type="button" data-query="中文">中文</button></div></div>
+        </div>
+        <div id="pagination" class="pagination" hidden><button id="previous-page" type="button" class="quiet-button">← Previous</button><span id="page-label" class="small"></span><button id="next-page" type="button" class="quiet-button">Next →</button></div>
+      </div>
+
+      <aside class="context-pane" id="context-pane" tabindex="-1" aria-label="Conversation context">
+        <div id="context-placeholder" class="context-placeholder"><span aria-hidden="true">↗</span><h3>The whole exchange, in view.</h3><p>Select a result to read its original dialogue. Alternate response branches stay separate.</p></div>
+        <div id="context-content" hidden><div class="context-header"><div><div class="eyebrow">Original dialogue</div><h2 id="context-title"></h2><p id="context-meta" class="small"></p></div><button id="close-context" type="button" class="icon-button" aria-label="Close conversation">×</button></div><div class="context-actions"><a id="original-link" class="quiet-button" target="_blank" rel="noopener noreferrer">Open original ↗</a><button id="copy-message" type="button" class="quiet-button">Copy matched message</button></div><p class="branch-note">Showing the selected branch. Other regenerated replies are not mixed into this exchange.</p><div id="messages" class="messages"></div></div>
+      </aside>
+    </section>
+  </main>
+
+  <footer><span>Local archive · Original passages · Clear sources</span><span>Chat Recall <span class="version">0.1</span></span></footer>
+
+  <dialog id="import-dialog" aria-labelledby="import-heading"><form id="import-form"><div class="dialog-heading"><h2 id="import-heading">Bring your history along</h2><button id="close-import" class="icon-button" type="button" aria-label="Close import">×</button></div><p>Choose an extracted ChatGPT JSON history file. Imports update existing messages without duplicating them.</p><label class="file-drop">Conversation JSON<input id="import-file" type="file" accept=".json,application/json" required><span>Extract your data-export ZIP first. Files up to 64 MB.</span></label><label>Account label<input id="import-account" value="default" autocomplete="off" required maxlength="200"><span class="small">Use the same label for later imports from this account.</span></label><p id="import-report" class="small" aria-live="polite"></p><button type="submit" id="confirm-import" class="search-submit">Import into local archive</button></form></dialog>
+</body>
+</html>

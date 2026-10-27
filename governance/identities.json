@@ -1,0 +1,39 @@
+{
+  "codex-online": {
+    "provider": "OpenAI",
+    "model": "operator-configured online Codex model",
+    "mode": "online",
+    "tool": "Codex",
+    "account": "maintainer-configured online account",
+    "roles": [
+      "architect",
+      "orchestrator",
+      "reviewer",
+      "integrator",
+      "worker"
+    ]
+  },
+  "agy-lead-high-v1": {
+    "provider": "Google",
+    "model": "gemini-3.8-flash-high",
+    "mode": "online",
+    "tool": "Antigravity CLI",
+    "account": "maintainer-configured online account",
+    "roles": [
+      "architect",
+      "orchestrator",
+      "reviewer",
+      "integrator"
+    ]
+  },
+  "agy-fast-v1": {
+    "provider": "Google",
+    "model": "gemini-3.8-flash-low",
+    "mode": "online",
+    "tool": "Antigravity CLI",
+    "account": "maintainer-configured online account",
+    "roles": [
+      "worker"
+    ]
+  }
+}

@@ -1,0 +1,445 @@
+{
+  "benchmark": "synthetic-demo-v1",
+  "synthetic": true,
+  "warning": "Synthetic integration evidence; not a held-out personal-history quality claim.",
+  "import": {
+    "conversations": 7,
+    "messages": 15,
+    "skipped": 1,
+    "errors": [],
+    "source_id": "chatgpt",
+    "account_id": "default"
+  },
+  "exact": {
+    "queries": 60,
+    "query_recall": 1.0,
+    "failures": [],
+    "median_ms": 0.065,
+    "p95_ms": 0.213
+  },
+  "smart": {
+    "queries": 50,
+    "mode": "real-ollama-hybrid",
+    "model_id": "ollama:qwen3-embedding:0.6b",
+    "semantic_queries": 50,
+    "target_in_top_5": 1.0,
+    "mrr_at_10": 0.95,
+    "ndcg_at_10": 0.962464252465794,
+    "enrichment": {
+      "processed": 15,
+      "vectors": 15,
+      "topics": 0,
+      "errors": [],
+      "model_id": "ollama:qwen3-embedding:0.6b",
+      "remaining": 0
+    },
+    "results": [
+      {
+        "query": "phone internet VPN routing",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 183.38,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "network breaks when tunneling enabled",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 124.04,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "includeAllNetworks connectivity diagnosis",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 193.71,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "DNS tests before modifying settings",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 99.63,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "what made my iPhone go offline",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 70.58,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "compare VPN on and off",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 68.66,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "手机开启VPN后没有网络",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 70.0,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "suspected route enforcement problem",
+        "expected_conversation": "synthetic-vpn",
+        "rank": 1,
+        "elapsed_ms": 72.47,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "make tomato soup less acidic",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 1,
+        "elapsed_ms": 68.7,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "reduce sourness in lunch",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 4,
+        "elapsed_ms": 76.5,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "carrots add sweetness",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 1,
+        "elapsed_ms": 60.53,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "roasted tomatoes and cream",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 1,
+        "elapsed_ms": 58.48,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "when should I add sugar to soup",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 1,
+        "elapsed_ms": 72.82,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "让番茄汤不要那么酸",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 1,
+        "elapsed_ms": 76.31,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "what was the cooking adjustment we decided",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 1,
+        "elapsed_ms": 85.19,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "a creamy way to soften acidity",
+        "expected_conversation": "synthetic-cooking",
+        "rank": 1,
+        "elapsed_ms": 90.07,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "simple vocabulary list without templates",
+        "expected_conversation": "synthetic-vocabulary",
+        "rank": 1,
+        "elapsed_ms": 69.45,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "meaning of resilient",
+        "expected_conversation": "synthetic-vocabulary",
+        "rank": 1,
+        "elapsed_ms": 70.88,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "recover after difficulty word",
+        "expected_conversation": "synthetic-vocabulary",
+        "rank": 1,
+        "elapsed_ms": 100.88,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "serendipity ephemeral",
+        "expected_conversation": "synthetic-vocabulary",
+        "rank": 1,
+        "elapsed_ms": 73.55,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "保持单词笔记简单",
+        "expected_conversation": "synthetic-vocabulary",
+        "rank": 1,
+        "elapsed_ms": 63.03,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "just a dated list for new words",
+        "expected_conversation": "synthetic-vocabulary",
+        "rank": 1,
+        "elapsed_ms": 87.26,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "I disliked complicated study scaffolding",
+        "expected_conversation": "synthetic-vocabulary",
+        "rank": 4,
+        "elapsed_ms": 79.63,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "avoid losing access to encrypted backups",
+        "expected_conversation": "synthetic-cipher",
+        "rank": 1,
+        "elapsed_ms": 85.72,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "where should a recovery key be stored",
+        "expected_conversation": "synthetic-cipher",
+        "rank": 1,
+        "elapsed_ms": 96.72,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "forgotten passphrase recovery decision",
+        "expected_conversation": "synthetic-cipher",
+        "rank": 1,
+        "elapsed_ms": 79.37,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "paper code in a sealed envelope",
+        "expected_conversation": "synthetic-cipher",
+        "rank": 1,
+        "elapsed_ms": 74.66,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "加密备份恢复密钥",
+        "expected_conversation": "synthetic-cipher",
+        "rank": 1,
+        "elapsed_ms": 72.87,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "alternative backup recovery proposal",
+        "expected_conversation": "synthetic-cipher",
+        "rank": 1,
+        "elapsed_ms": 61.26,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "keep the recovery material offline",
+        "expected_conversation": "synthetic-cipher",
+        "rank": 1,
+        "elapsed_ms": 72.77,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "prevent missing config key errors",
+        "expected_conversation": "synthetic-code",
+        "rank": 1,
+        "elapsed_ms": 69.1,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "ERR_CFG_204",
+        "expected_conversation": "synthetic-code",
+        "rank": 1,
+        "elapsed_ms": 83.57,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "never log an API secret",
+        "expected_conversation": "synthetic-code",
+        "rank": 1,
+        "elapsed_ms": 60.2,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "dictionary get instead of indexing",
+        "expected_conversation": "synthetic-code",
+        "rank": 1,
+        "elapsed_ms": 67.48,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "API key parser failure",
+        "expected_conversation": "synthetic-code",
+        "rank": 1,
+        "elapsed_ms": 65.16,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "如何避免在日志中泄露密钥",
+        "expected_conversation": "synthetic-code",
+        "rank": 2,
+        "elapsed_ms": 72.83,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "validate configuration before using it",
+        "expected_conversation": "synthetic-code",
+        "rank": 1,
+        "elapsed_ms": 74.65,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "mountain railway and lake itinerary",
+        "expected_conversation": "synthetic-travel",
+        "rank": 1,
+        "elapsed_ms": 82.17,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "quiet water and cable car holiday",
+        "expected_conversation": "synthetic-travel",
+        "rank": 1,
+        "elapsed_ms": 86.25,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "check opening hours before the trip",
+        "expected_conversation": "synthetic-travel",
+        "rank": 1,
+        "elapsed_ms": 90.31,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "take the train in the morning",
+        "expected_conversation": "synthetic-travel",
+        "rank": 1,
+        "elapsed_ms": 82.58,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "周末登山火车和湖边散步",
+        "expected_conversation": "synthetic-travel",
+        "rank": 1,
+        "elapsed_ms": 81.78,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "saved travel plan for Saturday",
+        "expected_conversation": "synthetic-travel",
+        "rank": 1,
+        "elapsed_ms": 59.39,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "when is the cable car operating",
+        "expected_conversation": "synthetic-travel",
+        "rank": 1,
+        "elapsed_ms": 76.02,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "Unicode case folding German sharp s",
+        "expected_conversation": "synthetic-unicode",
+        "rank": 2,
+        "elapsed_ms": 83.69,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "overlapping banana matches",
+        "expected_conversation": "synthetic-unicode",
+        "rank": 1,
+        "elapsed_ms": 74.93,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "preserve punctuation and code point offsets",
+        "expected_conversation": "synthetic-unicode",
+        "rank": 1,
+        "elapsed_ms": 102.17,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "accented café different representations",
+        "expected_conversation": "synthetic-unicode",
+        "rank": 1,
+        "elapsed_ms": 75.29,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "a script tag must stay plain text",
+        "expected_conversation": "synthetic-unicode",
+        "rank": 1,
+        "elapsed_ms": 74.29,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      },
+      {
+        "query": "emoji and Chinese search examples",
+        "expected_conversation": "synthetic-unicode",
+        "rank": 1,
+        "elapsed_ms": 69.29,
+        "semantic_used": true,
+        "semantic_status": "ready"
+      }
+    ]
+  },
+  "gates": {
+    "exact_passed": true,
+    "synthetic_semantic_passed": true,
+    "real_history_quality": "not_evaluated",
+    "live_chatgpt_sync": "not_evaluated"
+  }
+}

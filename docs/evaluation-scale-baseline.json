@@ -1,0 +1,98 @@
+{
+  "benchmark": "scale-exact-eval",
+  "timing_sample": true,
+  "warning": "Single run per query timing sample; not a production or held-out performance guarantee.",
+  "environment": {
+    "python_version": "3.14.6",
+    "sqlite_version": "3.50.4"
+  },
+  "corpus": {
+    "conversations": 5000,
+    "messages": 25000,
+    "utf8_bytes": 7816669,
+    "db_bytes": 85483520,
+    "import_seconds": 7.7552
+  },
+  "latency_summary": {
+    "first_page_median_ms": 162.213,
+    "first_page_p95_ms": 906.422
+  },
+  "queries": [
+    {
+      "query": "shared archive",
+      "oracle_expected": 25000,
+      "retrieved_total": 25000,
+      "pages_fetched": 125,
+      "first_page_ms": 906.422,
+      "total_pagination_ms": 111614.683,
+      "match_count_sum": 25000
+    },
+    {
+      "query": "serial:000000/0",
+      "oracle_expected": 1,
+      "retrieved_total": 1,
+      "pages_fetched": 1,
+      "first_page_ms": 1.504,
+      "total_pagination_ms": 1.559,
+      "match_count_sum": 1
+    },
+    {
+      "query": "group:000",
+      "oracle_expected": 250,
+      "retrieved_total": 250,
+      "pages_fetched": 2,
+      "first_page_ms": 17.825,
+      "total_pagination_ms": 30.254,
+      "match_count_sum": 250
+    },
+    {
+      "query": "STRASSE",
+      "oracle_expected": 4167,
+      "retrieved_total": 4167,
+      "pages_fetched": 21,
+      "first_page_ms": 161.826,
+      "total_pagination_ms": 3402.556,
+      "match_count_sum": 4167
+    },
+    {
+      "query": "你好",
+      "oracle_expected": 4167,
+      "retrieved_total": 4167,
+      "pages_fetched": 21,
+      "first_page_ms": 893.123,
+      "total_pagination_ms": 18579.753,
+      "match_count_sum": 4167
+    },
+    {
+      "query": "a+b(c)",
+      "oracle_expected": 4167,
+      "retrieved_total": 4167,
+      "pages_fetched": 21,
+      "first_page_ms": 162.6,
+      "total_pagination_ms": 3391.44,
+      "match_count_sum": 4167
+    },
+    {
+      "query": "ana",
+      "oracle_expected": 4166,
+      "retrieved_total": 4166,
+      "pages_fetched": 21,
+      "first_page_ms": 170.118,
+      "total_pagination_ms": 3458.728,
+      "match_count_sum": 8332
+    },
+    {
+      "query": "absent marker",
+      "oracle_expected": 0,
+      "retrieved_total": 0,
+      "pages_fetched": 1,
+      "first_page_ms": 0.098,
+      "total_pagination_ms": 0.125,
+      "match_count_sum": 0
+    }
+  ],
+  "oracle_failures": [],
+  "gates": {
+    "exact_passed": true
+  }
+}

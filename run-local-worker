@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")"
+if [ -z "${CHAT_RECALL_LITERT:-}" ] && [ -x .runtime/bin/litert-lm ]; then
+  CHAT_RECALL_LITERT="$PWD/.runtime/bin/litert-lm"
+  export CHAT_RECALL_LITERT
+fi
+exec "${CHAT_RECALL_PYTHON:-python3}" scripts/gallery_worker.py "$@"

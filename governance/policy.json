@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "coordinator_available": true,
+  "active_coordinator": "codex-online",
+  "authority_owner": "codex-online",
+  "primary_coordinator": "codex-online",
+  "fallback_coordinator": "agy-lead-high-v1",
+  "authorized_coordinators": [
+    "codex-online",
+    "agy-lead-high-v1"
+  ],
+  "target_branch": "main",
+  "independent_review": true,
+  "authority_roles": [
+    "architect",
+    "integrator",
+    "orchestrator",
+    "reviewer"
+  ],
+  "identity_verification": "operator-attestation; not cryptographic remote-inference proof",
+  "coordinator_takeover": false,
+  "requested_orchestrator_model": "operator-configured online Codex model",
+  "worker_priority": [
+    "agy-fast-v1"
+  ],
+  "worker_fallback": "No automatic local model loading."
+}

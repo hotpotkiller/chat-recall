@@ -1,0 +1,64 @@
+{
+  "conversations": [
+    {
+      "id": "synthetic-vpn",
+      "title": "A phone connection mystery",
+      "messages": [
+        {"id": "vpn-q", "role": "user", "text": "My iPhone loses internet when the VPN is enabled. Could includeAllNetworks or enforceRoutes cause it?", "created_at": "2026-10-10T09:00:00Z"},
+        {"id": "vpn-a", "role": "assistant", "text": "Treat includeAllNetworks as a routing suspect. Compare fresh connectivity tests with the VPN enabled and disabled. Record DNS results before changing settings.", "created_at": "2026-10-10T09:00:30Z"}
+      ]
+    },
+    {
+      "id": "synthetic-cooking",
+      "title": "Lunch experiments",
+      "messages": [
+        {"id": "cook-q", "role": "user", "text": "How did we make the tomato soup less sour?", "created_at": "2026-10-11T12:00:00Z"},
+        {"id": "cook-a", "role": "assistant", "text": "Roast the tomatoes first and add carrots for sweetness. A spoon of cream softens the acidity. Taste before adding sugar.", "created_at": "2026-10-11T12:00:30Z"}
+      ]
+    },
+    {
+      "id": "synthetic-vocabulary",
+      "title": "New words",
+      "messages": [
+        {"id": "words-q", "role": "user", "text": "Keep this vocabulary list simple: serendipity, ephemeral, and resilient. 不要增加复杂的学习模板。", "created_at": "2026-10-12T08:00:00Z"},
+        {"id": "words-a", "role": "assistant", "text": "Resilient means able to recover after difficulty. 简单的日期列表就够了。", "created_at": "2026-10-12T08:00:30Z"}
+      ]
+    },
+    {
+      "id": "synthetic-cipher",
+      "title": "The blue notebook",
+      "mapping": {
+        "root": {"id": "root", "parent": null, "message": null},
+        "system": {"id": "system", "parent": "root", "message": {"id": "system", "author": {"role": "system"}, "content": {"content_type": "text", "parts": ["Internal setup must never be searchable."]}}},
+        "cipher-q": {"id": "cipher-q", "parent": "system", "message": {"id": "cipher-q", "author": {"role": "user"}, "content": {"content_type": "text", "parts": ["What did we decide about encrypted backup recovery?"]}, "create_time": 1791878400}},
+        "cipher-a": {"id": "cipher-a", "parent": "cipher-q", "message": {"id": "cipher-a", "author": {"role": "assistant"}, "content": {"content_type": "text", "parts": ["Keep the recovery key offline. A forgotten passphrase should not silently destroy access to encrypted backups."]}, "create_time": 1791878430}},
+        "cipher-alt": {"id": "cipher-alt", "parent": "cipher-q", "message": {"id": "cipher-alt", "author": {"role": "assistant"}, "content": {"content_type": "text", "parts": ["Alternative considered: a paper recovery code sealed in an envelope."]}, "create_time": 1791878440}}
+      },
+      "current_node": "cipher-a"
+    },
+    {
+      "id": "synthetic-code",
+      "title": "A tiny file parser",
+      "messages": [
+        {"id": "code-q", "role": "user", "text": "The parser fails at config['api_key'] when a key is missing. How do I handle that safely?", "created_at": "2026-10-13T09:00:00Z"},
+        {"id": "code-a", "role": "assistant", "text": "Use config.get('api_key') and validate the result before use. Never print the key in error logs. The exact identifier is ERR_CFG_204.", "created_at": "2026-10-13T09:00:30Z"}
+      ]
+    },
+    {
+      "id": "synthetic-travel",
+      "title": "Saturday plans",
+      "messages": [
+        {"id": "travel-q", "role": "user", "text": "Save the mountain train idea for the trip. I remember a quiet lake and the cable car.", "created_at": "2026-10-14T09:00:00Z"},
+        {"id": "travel-a", "role": "assistant", "text": "Take the mountain railway in the morning, walk around the lake, and check the cable car's operating schedule before leaving.", "created_at": "2026-10-14T09:00:30Z"}
+      ]
+    },
+    {
+      "id": "synthetic-unicode",
+      "title": "Words across languages",
+      "messages": [
+        {"id": "unicode-q", "role": "user", "text": "Straße, STRASSE, straße. 😀 Search 中文 and 中文. The word banana contains overlapping ana matches.", "created_at": "2026-10-15T09:00:00Z"},
+        {"id": "unicode-a", "role": "assistant", "text": "Preserve punctuation and offsets: café differs from café at the code-point level. A literal <script>alert('demo')</script> is plain text here.", "created_at": "2026-10-15T09:00:30Z"}
+      ]
+    }
+  ]
+}
