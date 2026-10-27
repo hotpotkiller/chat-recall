@@ -3,7 +3,7 @@
 All public fixtures and benchmark corpora are synthetic. No personal history or
 provider credentials are needed for the default checks.
 
-The clean release snapshot passed 117 Python unit/integration tests, seven
+The clean release snapshot passed 146 Python unit/integration tests, seven
 JavaScript syntax checks and all three offline JavaScript behavior suites before
 publication. Its small default evaluation retrieved all 60 expected exact queries.
 These local release checks do not load an embedding model or contact a chat account.
@@ -48,3 +48,23 @@ optional real-model experiment is not part of the default checks.
 
 CI is defined in `.github/workflows/checks.yml`. Its actual status is visible on
 the repository's Actions tab; a definition alone is not a passing run.
+
+## Optional Smart evaluation
+
+The current real-model synthetic run used qwen3-embedding:0.6b on 18 conversations
+and 64 queries. Target recall at 3 was 48/48; MRR at 10 was 0.9792. The 16 fresh
+holdout queries achieved 8/8 target recall and MRR 0.9375; one unrelated holdout
+query produced a keyword-only suggestion, while none produced a semantic one.
+No source/context identity errors occurred. Query p95 was 682.368 ms.
+
+Sampled loaded model size fell from 2.21 GiB in a stopped large-context trial to
+0.74 GiB with the small profile; it unloaded afterward. On a separate fixed
+2,000-message/16-dimensional synthetic query sample, peak traced Python
+allocations fell from 4,562,214 to 150,577 bytes. These exclude native/model RSS.
+
+See [Smart design and reproduction](smart-search.md),
+[raw relevance results](evaluation-smart-v2.json) and
+[allocation/residency results](evaluation-smart-memory.json). The cutoff was
+chosen on the calibration subset and frozen before the fresh holdout run.
+This small synthetic evaluation does not establish personal-history relevance.
+Default checks remain offline and Smart/importing remain off by default.

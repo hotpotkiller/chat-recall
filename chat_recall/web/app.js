@@ -199,18 +199,39 @@ function resetContextViewer() {
   });
 }
 
+function smartRetrievalReason(result) {
+  const channels = Array.isArray(result.retrieval_channels)
+    ? result.retrieval_channels.map((c) => String(c).toLowerCase().trim()).filter(Boolean)
+    : [];
+  const matchType = typeof result.match_type === "string" ? result.match_type.toLowerCase().trim() : "";
+
+  const hasExact = channels.includes("literal") || matchType === "exact";
+  const hasKeyword = channels.includes("keyword") || matchType === "lexical";
+  const hasDialogue = channels.includes("dialogue") || channels.includes("topic") || matchType === "semantic";
+
+  if (matchType === "hybrid" || ((hasExact || hasKeyword) && hasDialogue)) return "words + meaning";
+  if (hasExact) return "exact phrase";
+  if (hasKeyword) return "keyword match";
+  if (hasDialogue) return "related dialogue";
+  return "ranked passage";
+}
+
 function renderResults(data) {
   resetContextViewer();
   state.results = Array.isArray(data.results) ? data.results : [];
   state.total = Number(data.total || 0);
-  $("results-title").textContent = state.total ? (state.mode === "exact" ? "Matching messages" : "Relevant passages") : "No matching messages";
+  $("results-title").textContent = state.total ? (state.mode === "exact" ? "Matching messages" : "Ranked passages") : (state.mode === "smart" ? "No relevant dialogue found" : "No matching messages");
   const occurrences = state.results.reduce((count, result) => count + Number(result.match_count || 0), 0);
-  $("result-count").textContent = `${state.total.toLocaleString()} ${state.total === 1 ? "message" : "messages"}${state.mode === "exact" && state.results.length ? ` · ${occurrences} occurrences on this page` : ""}`;
+  if (state.mode === "smart") {
+    $("result-count").textContent = `${state.total.toLocaleString()} ${state.total === 1 ? "ranked passage" : "ranked passages"}`;
+  } else {
+    $("result-count").textContent = `${state.total.toLocaleString()} ${state.total === 1 ? "message" : "messages"}${state.results.length ? ` · ${occurrences} occurrences on this page` : ""}`;
+  }
   if (state.mode === "smart") {
     const semantic = data.semantic || {};
     const meaningUsed = semantic.used === true;
     if (meaningUsed) {
-      let note = "Smart search finds related ideas when wording differs (e.g., “fix wifi” finds “network troubleshooting”). Combines original wording with meaning candidates.";
+      let note = "Smart finds related dialogue when the wording differs. Search by a remembered idea or exchange.";
       if (semantic.pending_messages !== undefined || semantic.indexed_messages !== undefined) {
         const pending = Number(semantic.pending_messages || 0);
         const indexed = Number(semantic.indexed_messages || 0);
@@ -220,7 +241,6 @@ function renderResults(data) {
           note += ` (${indexed.toLocaleString()} indexed messages).`;
         }
       }
-      note += " Every result opens its source dialogue.";
       if (semantic.reranking?.used) note += ` Cloud reranking used ${semantic.reranking.model || "the configured model"}.`;
       else if (semantic.reranking?.error) note += ` Cloud reranking unavailable; local ranking retained. ${semantic.reranking.error}`;
       $("mode-note").textContent = note;
@@ -236,7 +256,7 @@ function renderResults(data) {
         defaultReason = "embedding provider unavailable";
       }
       const fallbackReason = rawError ? String(rawError).slice(0, 300) : defaultReason;
-      let note = `Keyword fallback is active (${fallbackReason}); meaning search was not used for these results. Smart search finds related ideas when wording differs (e.g., “fix wifi” finds “network troubleshooting”).`;
+      let note = `Keyword fallback is active (${fallbackReason}); meaning search was not used for these results. Smart finds related dialogue when the wording differs. Search by a remembered idea or exchange.`;
       if (semantic.pending_messages !== undefined || semantic.indexed_messages !== undefined) {
         const pending = Number(semantic.pending_messages || 0);
         const indexed = Number(semantic.indexed_messages || 0);
@@ -250,7 +270,11 @@ function renderResults(data) {
     }
   }
   if (!state.results.length) {
-    emptyState("No match in this archive.", "Try fewer words, switch to Smart search, or check the account and speaker filters. New or missing history may still need to be imported.");
+    if (state.mode === "smart") {
+      emptyState("No relevant dialogue found.", "Describe the exchange or idea using different words, or check the account and speaker filters.");
+    } else {
+      emptyState("No match in this archive.", "Try fewer words, switch to Smart search, or check the account and speaker filters. New or missing history may still need to be imported.");
+    }
   } else {
     const fragment = document.createDocumentFragment();
     state.results.forEach((result, index) => {
@@ -265,10 +289,34 @@ function renderResults(data) {
       title.addEventListener("click", () => openContext(result, index));
       const excerpt = element("p", "result-excerpt");
       appendHighlighted(excerpt, result.text || result.snippet || "", result.matches || [], true, result.focus_offset);
+
+      let earlierBlock = null;
+      if (Array.isArray(result.dialogue_preview) && result.dialogue_preview.length > 0) {
+        const previews = result.dialogue_preview.slice(0, 2);
+        const items = [];
+        for (const prev of previews) {
+          if (!prev || typeof prev !== "object") continue;
+          if (typeof prev.text !== "string" || (prev.role !== "user" && prev.role !== "assistant")) continue;
+          const roleLabel = prev.role === "user" ? "You" : "AI";
+          const truncated = Array.from(prev.text).slice(0, 240).join("");
+          const item = element("div", "earlier-item");
+          const roleSpan = element("span", "earlier-role", roleLabel);
+          item.append(roleSpan, document.createTextNode(truncated));
+          items.push(item);
+        }
+        if (items.length > 0) {
+          earlierBlock = element("div", "earlier-exchanges");
+          const heading = element("div", "earlier-heading", "Earlier in this exchange");
+          earlierBlock.append(heading, ...items);
+        }
+      }
+
       const footer = element("div", "result-footer");
       const accountSpan = element("span", "account-label", result.account_id || "default");
       const actions = element("div", "card-actions");
-      const matchLabel = result.match_type === "exact" ? `${result.match_count || 0} ${result.match_count === 1 ? "match" : "matches"}` : `${result.match_type || "ranked"}`;
+      const matchLabel = state.mode === "smart"
+        ? smartRetrievalReason(result)
+        : (result.match_type === "exact" ? `${result.match_count || 0} ${result.match_count === 1 ? "match" : "matches"}` : `${result.match_type || "ranked"}`);
       actions.append(element("span", "match-info", matchLabel));
       const openBtn = element("button", "open-conversation-btn quiet-button", "Open conversation");
       openBtn.type = "button";
@@ -283,7 +331,11 @@ function renderResults(data) {
         openContext(result, index);
       });
 
-      card.append(metadata, title, excerpt, footer);
+      if (earlierBlock) {
+        card.append(metadata, title, excerpt, earlierBlock, footer);
+      } else {
+        card.append(metadata, title, excerpt, footer);
+      }
       fragment.append(card);
     });
     $("results").replaceChildren(fragment);
@@ -311,14 +363,19 @@ async function runSearch(reset = true) {
   const generation = ++state.request;
   if (!query) {
     state.total = 0; state.results = [];
-    $("results-title").textContent = "Start with something you remember";
+    $("results-title").textContent = state.mode === "smart" ? "Describe a remembered exchange" : "Start with something you remember";
     $("result-count").textContent = "";
     $("pagination").hidden = true;
     $("results").setAttribute("aria-busy", "false");
-    emptyState("A sentence can bring it all back.", "Try a distinctive word or phrase from a conversation. Search covers only successfully imported messages.", true);
+    if (state.mode === "smart") {
+      emptyState("Find an idea when exact words escape you.", "Describe the topic, question, or exchange you remember. Press Search or Enter to retrieve ranked passages.");
+    } else {
+      emptyState("A sentence can bring it all back.", "Type a remembered literal phrase or distinctive word to find exhaustive matching messages and counts.", true);
+    }
     return;
   }
-  const params = new URLSearchParams({ q: query, mode: state.mode, limit: state.limit, offset: state.offset, case_sensitive: $("case-sensitive").checked ? "1" : "0" });
+  const caseSensitiveValue = state.mode === "smart" ? "0" : ($("case-sensitive").checked ? "1" : "0");
+  const params = new URLSearchParams({ q: query, mode: state.mode, limit: state.limit, offset: state.offset, case_sensitive: caseSensitiveValue });
   if ($("role").value) params.set("role", $("role").value);
   if ($("account").value) params.set("account_id", $("account").value);
   if (state.mode === "smart" && state.cloudAvailable && $("cloud-rerank").checked) params.set("cloud", "1");
@@ -401,8 +458,17 @@ async function openContext(result, index) {
     }
     $("messages").replaceChildren(fragment);
     const matched = $("messages").querySelector(".matched");
+    const firstMark = matched?.querySelector("mark");
     const anchor = matched?.querySelector(".semantic-anchor");
-    if (anchor) {
+    if (firstMark) {
+      if (typeof firstMark.scrollIntoView === "function") {
+        firstMark.scrollIntoView({ block: "center" });
+      } else if (typeof firstMark.offsetTop === "number" && firstMark.offsetTop > 0) {
+        $("messages").scrollTop = Math.max(0, firstMark.offsetTop - $("messages").offsetTop - 25);
+      } else if (matched) {
+        $("messages").scrollTop = Math.max(0, matched.offsetTop - $("messages").offsetTop - 25);
+      }
+    } else if (anchor) {
       if (typeof anchor.scrollIntoView === "function") {
         anchor.scrollIntoView({ block: "center" });
       } else if (typeof anchor.offsetTop === "number" && anchor.offsetTop > 0) {
@@ -437,27 +503,71 @@ async function copyText(text, button, confirmation) {
   catch { notice("Clipboard access is unavailable. Select and copy the text directly.", true); }
 }
 
+function updateModeUI(mode) {
+  state.mode = mode;
+  const isSmart = mode === "smart";
+  $("query").placeholder = isSmart ? "Describe an idea or remembered dialogue…" : "Search exact words remembered…";
+  $("case-sensitive").disabled = isSmart;
+  $("cloud-rerank").disabled = !isSmart;
+  $("mode-note").textContent = isSmart
+    ? "Smart finds related dialogue when the wording differs. Search by a remembered idea or exchange."
+    : "Exact words finds exhaustive matching messages and counts. Capitalization is ignored unless “Match case” is enabled.";
+}
+
 $("search-form").addEventListener("submit", (event) => { event.preventDefault(); runSearch(true); });
-$("query").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => runSearch(true), 250); });
+$("query").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  const checkedMode = document.querySelector('input[name="mode"]:checked')?.value || "exact";
+  const activeMode = state.semanticAvailable ? checkedMode : "exact";
+  if (activeMode === "smart") {
+    // Smart requires explicit submit (Search button or Enter)
+    // Clear previous results/count/pagination/context for every typed Smart change,
+    // cancel pending debounce, increment request generation, clear busy, and show cue
+    ++state.request;
+    state.results = [];
+    state.total = 0;
+    state.offset = 0;
+    const query = $("query").value.trim();
+    state.query = query;
+    resetContextViewer();
+    $("results").setAttribute("aria-busy", "false");
+    $("results-title").textContent = "Describe a remembered exchange";
+    $("result-count").textContent = "";
+    $("pagination").hidden = true;
+    emptyState("Press Search or Enter to retrieve", "Describe the exchange or concept you remember, then submit to find relevant dialogue passages.");
+  } else {
+    searchTimer = setTimeout(() => runSearch(true), 250);
+  }
+});
 document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener("change", () => {
+  clearTimeout(searchTimer);
+  ++state.request;
+  resetContextViewer();
   if (!state.semanticAvailable) {
     const smartRadio = document.querySelector('input[name="mode"][value="smart"]');
     const exactRadio = document.querySelector('input[name="mode"][value="exact"]');
     if (smartRadio) { smartRadio.checked = false; smartRadio.disabled = true; }
     if (exactRadio) { exactRadio.checked = true; exactRadio.disabled = false; }
-    $("case-sensitive").disabled = false;
-    $("cloud-rerank").disabled = true;
+    updateModeUI("exact");
     $("mode-note").textContent = "Smart search is off · Exact search is available.";
     runSearch(true);
     return;
   }
   const smart = input.value === "smart";
-  $("case-sensitive").disabled = smart;
-  $("cloud-rerank").disabled = !smart;
-  $("mode-note").textContent = smart
-    ? "Smart search finds related ideas when wording differs (e.g., “fix wifi” finds “network troubleshooting”). Ranks keyword and available meaning-based candidates."
-    : "Exact for remembered words; Smart for related ideas when wording differs (e.g., “fix wifi” finds “network troubleshooting”). Capitalization is ignored unless “Match case” is enabled.";
-  runSearch(true);
+  updateModeUI(smart ? "smart" : "exact");
+  if (smart) {
+    // Entering Smart clears state results/total/offset, waits for explicit submit, shows concise cue
+    state.results = [];
+    state.total = 0;
+    state.offset = 0;
+    $("results-title").textContent = "Describe a remembered exchange";
+    $("result-count").textContent = "";
+    $("pagination").hidden = true;
+    $("results").setAttribute("aria-busy", "false");
+    emptyState("Press Search or Enter to retrieve", "Describe the exchange or concept you remember, then submit to find relevant dialogue passages.");
+  } else {
+    runSearch(true);
+  }
 }));
 for (const id of ["role", "account", "case-sensitive", "cloud-rerank"]) $(id).addEventListener("change", () => runSearch(true));
 document.querySelectorAll("[data-query]").forEach((button) => button.addEventListener("click", () => { $("query").value = button.dataset.query; runSearch(true); }));
@@ -519,7 +629,7 @@ document.addEventListener("keydown", (event) => {
         exactRadio.checked = true;
         exactRadio.disabled = false;
       }
-      $("case-sensitive").disabled = false;
+      updateModeUI("exact");
       $("mode-note").textContent = "Smart search is off · Exact search is available.";
     } else {
       if (smartRadio) smartRadio.disabled = false;
@@ -540,9 +650,7 @@ document.addEventListener("keydown", (event) => {
     } else if (state.semanticAvailable && params.get("mode") === "smart") {
       if (smartRadio) smartRadio.checked = true;
       if (exactRadio) exactRadio.checked = false;
-      $("case-sensitive").disabled = true;
-      $("cloud-rerank").disabled = false;
-      $("mode-note").textContent = "Smart search finds related ideas when wording differs (e.g., “fix wifi” finds “network troubleshooting”). Ranks keyword and available meaning-based candidates.";
+      updateModeUI("smart");
     }
     if (params.get("q")) { $("query").value = params.get("q"); await runSearch(true); }
   } catch (error) { notice(`Cannot reach the local archive. ${error.message}`, true); $("archive-count").textContent = "Archive unavailable"; $("semantic-status").textContent = ""; }

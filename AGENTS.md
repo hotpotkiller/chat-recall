@@ -6,7 +6,10 @@ offsets and conversation branches authoritative.
 
 Smart/model processing and automatic importing stay off unless the user explicitly
 requests them. Use synthetic fixtures for development. Do not inspect personal
-histories or credentials, run real model evaluations or download models as checks.
+histories or credentials or download models as checks. Real model evaluations
+require an explicit synthetic-only opt-in with a time/memory budget; ordinary
+checks never load a model. Personal activation requires measured quality and
+memory evidence, including unrelated-query rejection, shown to the user first.
 
 Use Python 3.11+ standard library, SQLite FTS5 and plain HTML/CSS/JavaScript. No new
 dependencies, provider/API contracts or database migrations without online design

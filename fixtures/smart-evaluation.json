@@ -1,0 +1,765 @@
+{
+  "synthetic": true,
+  "version": "smart-evaluation-v2",
+  "description": "Synthetic integration evaluation fixture with confusable topics, paraphrases, and near-neighbours. Not private or real user data.",
+  "conversations": [
+    {
+      "id": "conv-soup-acidity",
+      "title": "Tomato soup acidity balance",
+      "messages": [
+        {
+          "id": "msg-soup-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "My homemade tomato soup turned out unpleasantly tart and sharp. How can I temper that pungent sourness without making it taste like dessert?"
+        },
+        {
+          "id": "msg-soup-2",
+          "parent_id": "msg-soup-1",
+          "role": "assistant",
+          "text": "To soften harsh acidic bite in simmered tomatoes, stir in caramelized grated carrots or a splash of heavy cream. A pinch of baking soda can also chemically neutralize excess citric acid, whereas adding plain table sugar only masks sour flavor."
+        }
+      ]
+    },
+    {
+      "id": "conv-sourdough-bread",
+      "title": "Sourdough fermentation acidity",
+      "messages": [
+        {
+          "id": "msg-sourdough-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "My sourdough bread crumb has too much vinegary tang. Why is the starter generating such strong acid notes during the cold retard stage?"
+        },
+        {
+          "id": "msg-sourdough-2",
+          "parent_id": "msg-sourdough-1",
+          "role": "assistant",
+          "text": "Extended cold proofing encourages heterofermentative lactic and acetic acid bacteria to produce pungent vinegar-like notes. To achieve a milder loaf, shorten the overnight refrigeration duration and maintain higher hydration during bulk fermentation."
+        }
+      ]
+    },
+    {
+      "id": "conv-wifi-dropout",
+      "title": "Home Wi-Fi intermittent connection dropouts",
+      "messages": [
+        {
+          "id": "msg-wifi-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "Every afternoon my residential wireless internet disconnects suddenly for ten seconds, forcing my video conference calls to drop out."
+        },
+        {
+          "id": "msg-wifi-2",
+          "parent_id": "msg-wifi-1",
+          "role": "assistant",
+          "text": "Check your dual-band wireless router for DFS radar channel switching on the 5GHz radio band. Also inspect local 2.4GHz spectrum congestion from microwave ovens or neighboring wireless access points."
+        }
+      ]
+    },
+    {
+      "id": "conv-cellular-roaming",
+      "title": "International mobile cellular roaming",
+      "messages": [
+        {
+          "id": "msg-roaming-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "When stepping off the flight abroad, my handset lost cellular coverage completely and refuses to register on partner telecommunication towers."
+        },
+        {
+          "id": "msg-roaming-2",
+          "parent_id": "msg-roaming-1",
+          "role": "assistant",
+          "text": "Verify whether international data roaming toggles are active under mobile cellular settings, check carrier APN configurations, or try manually overriding automatic carrier selection to attach to an overseas GSM partner."
+        }
+      ]
+    },
+    {
+      "id": "conv-2fa-recovery",
+      "title": "Two-factor authentication emergency recovery codes",
+      "messages": [
+        {
+          "id": "msg-2fa-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "I misplaced my hardware security token and need to bypass multi-factor login using the emergency alphanumeric backup strings I saved during setup."
+        },
+        {
+          "id": "msg-2fa-2",
+          "parent_id": "msg-2fa-1",
+          "role": "assistant",
+          "text": "Navigate to the authentication portal login screen, select Try Another Method, and enter one single-use alphanumeric emergency recovery code from your printed vault sheet."
+        }
+      ]
+    },
+    {
+      "id": "conv-disk-recovery",
+      "title": "Laptop disk crash and drive recovery",
+      "messages": [
+        {
+          "id": "msg-disk-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "My portable notebook internal NVMe storage SSD will not mount, reporting corrupted controller namespaces and I/O timeout errors during filesystem checks."
+        },
+        {
+          "id": "msg-disk-2",
+          "parent_id": "msg-disk-1",
+          "role": "assistant",
+          "text": "Power down the computer immediately to prevent firmware panic or further flash cell degradation. Boot an external live USB operating environment to image raw drive blocks using ddrescue before sending the solid state drive to an NVMe recovery lab."
+        }
+      ]
+    },
+    {
+      "id": "conv-browser-cookies",
+      "title": "Web browser HTTP session cookies",
+      "messages": [
+        {
+          "id": "msg-bcookie-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "How do web client browsers enforce SameSite and HttpOnly attribute flags on tracking session cookies to prevent cross-site request forgery attacks?"
+        },
+        {
+          "id": "msg-bcookie-2",
+          "parent_id": "msg-bcookie-1",
+          "role": "assistant",
+          "text": "Setting HttpOnly blocks client-side JavaScript execution contexts from reading document.cookie, while SameSite=Strict prevents user agents from transmitting stateful credentials during third-party origin navigations."
+        }
+      ]
+    },
+    {
+      "id": "conv-baked-cookies",
+      "title": "Baking chewy chocolate chip cookies",
+      "messages": [
+        {
+          "id": "msg-cookie-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "Why do my homemade baked chocolate chip pastries turn out flat, greasy, and brittle instead of soft and chewy after coming out of the oven?"
+        },
+        {
+          "id": "msg-cookie-2",
+          "parent_id": "msg-cookie-1",
+          "role": "assistant",
+          "text": "Chilling the prepared dough balls in the refrigerator before baking solidifies the butterfat, preventing excessive spread on the hot baking sheet and creating thick, chewy cookie centers."
+        }
+      ]
+    },
+    {
+      "id": "conv-python-programming",
+      "title": "Python asynchronous programming",
+      "messages": [
+        {
+          "id": "msg-py-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "How should an engineer structure coroutines with asyncio.gather and task groups to handle non-blocking concurrent network requests cleanly?"
+        },
+        {
+          "id": "msg-py-2",
+          "parent_id": "msg-py-1",
+          "role": "assistant",
+          "text": "In modern Python runtimes, prefer using asyncio.TaskGroup as an asynchronous context manager. It manages coroutine lifecycles cleanly and cancels sibling pending tasks automatically if an unhandled exception occurs."
+        }
+      ]
+    },
+    {
+      "id": "conv-snake-care",
+      "title": "Captive pet python snake husbandry",
+      "messages": [
+        {
+          "id": "msg-snake-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "What ambient enclosure humidity levels and undertank heat mat thermal gradients are necessary to keep a captive ball python healthy during shedding?"
+        },
+        {
+          "id": "msg-snake-2",
+          "parent_id": "msg-snake-1",
+          "role": "assistant",
+          "text": "Maintain enclosure relative humidity between 65 and 75 percent using damp sphagnum moss inside a dedicated hide box, and regulate heating elements with an external pulse thermostat to avoid thermal belly burns on your reptile."
+        }
+      ]
+    },
+    {
+      "id": "conv-duplicate-photos",
+      "title": "Deduplicating local photo gallery",
+      "messages": [
+        {
+          "id": "msg-photo-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "My desktop picture collection has thousands of identical pictures and burst shots taking up redundant local disk capacity. How do I clean them up?"
+        },
+        {
+          "id": "msg-photo-2",
+          "parent_id": "msg-photo-1",
+          "role": "assistant",
+          "text": "Execute a perceptual hash or byte-level MD5 scanner over the image directory to isolate identical snapshots, then inspect visual similarities before deleting redundant captured camera frames."
+        }
+      ]
+    },
+    {
+      "id": "conv-backup-sync",
+      "title": "Cloud backup synchronization",
+      "messages": [
+        {
+          "id": "msg-sync-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "How do remote cloud replication engines handle conflicting timestamp edits across multiple client workstations without corrupting revision history?"
+        },
+        {
+          "id": "msg-sync-2",
+          "parent_id": "msg-sync-1",
+          "role": "assistant",
+          "text": "Synchronization daemons maintain deterministic conflict-free replicated data types or delta manifests, splitting colliding concurrent updates into branch copies to avoid silent data loss."
+        }
+      ]
+    },
+    {
+      "id": "conv-sqlite-nul",
+      "title": "SQLite NUL byte string searching",
+      "messages": [
+        {
+          "id": "msg-sqlnul-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "Why does standard SQLite full-text search fail to index binary NUL bytes embedded inside text records without truncating the haystack string?"
+        },
+        {
+          "id": "msg-sqlnul-2",
+          "parent_id": "msg-sqlnul-1",
+          "role": "assistant",
+          "text": "The C tokenizer interprets X'00' as a zero-terminator, ending token extraction prematurely. To locate zero bytes reliably, cast the column to BLOB and evaluate the instr() SQL function directly."
+        }
+      ]
+    },
+    {
+      "id": "conv-js-null",
+      "title": "JavaScript null and undefined semantics",
+      "messages": [
+        {
+          "id": "msg-jsnull-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "Why does the typeof operator return object for null in ECMAScript, and how does that differ from an unassigned undefined variable?"
+        },
+        {
+          "id": "msg-jsnull-2",
+          "parent_id": "msg-jsnull-1",
+          "role": "assistant",
+          "text": "That behavior is a legacy bug from early JavaScript engine type tags, where object pointer references shared the zero tag with null. Undefined represents missing declaration value, whereas null denotes intentional object absence."
+        }
+      ]
+    },
+    {
+      "id": "conv-rail-refunds",
+      "title": "Train ticket cancellation and rail delays",
+      "messages": [
+        {
+          "id": "msg-rail-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "Our express passenger locomotive was held on the tracks for three hours due to overhead wire maintenance. How do I claim reimbursement for transit delay?"
+        },
+        {
+          "id": "msg-rail-2",
+          "parent_id": "msg-rail-1",
+          "role": "assistant",
+          "text": "Submit your passenger booking reference number through the national railway operator's delay repay compensation form to claim a statutory percentage refund on your rail fare."
+        }
+      ]
+    },
+    {
+      "id": "conv-hotel-cancellation",
+      "title": "Hotel room reservation policy",
+      "messages": [
+        {
+          "id": "msg-hotel-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "We cannot travel next weekend due to personal illness. Can our non-refundable resort suite stay be cancelled or waived without incurring full accommodation penalties?"
+        },
+        {
+          "id": "msg-hotel-2",
+          "parent_id": "msg-hotel-1",
+          "role": "assistant",
+          "text": "Contact the hotel front desk management directly to request an exceptional courtesy date change or voucher credit, citing medical documentation before the scheduled check-in arrival window."
+        }
+      ]
+    },
+    {
+      "id": "conv-chinese-tea",
+      "title": "Chinese Gongfu tea brewing techniques",
+      "messages": [
+        {
+          "id": "msg-tea-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "冲泡传统潮汕工夫茶时，应该如何把控紫砂壶的水温和浸泡时间，才能避免茶汤苦涩？"
+        },
+        {
+          "id": "msg-tea-2",
+          "parent_id": "msg-tea-1",
+          "role": "assistant",
+          "text": "冲泡高香型乌龙茶需使用沸水高冲，前三泡出汤务必迅捷利落，控制在数秒之内，以充分激发花果蜜香而避免茶多酚过度析出导致苦涩。"
+        }
+      ]
+    },
+    {
+      "id": "conv-chinese-coffee",
+      "title": "Specialty coffee manual pour over extraction",
+      "messages": [
+        {
+          "id": "msg-coffee-1",
+          "parent_id": null,
+          "role": "user",
+          "text": "手冲浅烘焙单一产区咖啡豆时，研磨度偏细导致滤杯下水堵塞、萃取过度的现象该怎么改善？"
+        },
+        {
+          "id": "msg-coffee-2",
+          "parent_id": "msg-coffee-1",
+          "role": "assistant",
+          "text": "应适当调粗磨豆机研磨刻度减少超细粉生成，并采用中心注水绕圈手法维持粉层透水性，将总萃取时间控制在两分半钟以内。"
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-soup-1",
+      "type": "positive",
+      "query": "reducing harsh acidic bite in simmered tomato pot",
+      "expected_conversation_id": "conv-soup-acidity",
+      "split": "calibration"
+    },
+    {
+      "id": "q-soup-2",
+      "type": "positive",
+      "query": "culinary remedies for excessive tartness in vegetable puree",
+      "expected_conversation_id": "conv-soup-acidity",
+      "split": "calibration"
+    },
+    {
+      "id": "q-sourdough-1",
+      "type": "positive",
+      "query": "starter fermentation producing excessive vinegar smell in dough",
+      "expected_conversation_id": "conv-sourdough-bread",
+      "split": "calibration"
+    },
+    {
+      "id": "q-sourdough-2",
+      "type": "positive",
+      "query": "curbing overnight proofing tang in rustic baked loaves",
+      "expected_conversation_id": "conv-sourdough-bread",
+      "split": "calibration"
+    },
+    {
+      "id": "q-wifi-1",
+      "type": "positive",
+      "query": "sporadic home internet drops during teleconference streaming",
+      "expected_conversation_id": "conv-wifi-dropout",
+      "split": "calibration"
+    },
+    {
+      "id": "q-wifi-2",
+      "type": "positive",
+      "query": "diagnosing 5GHz spectrum channel switching and router interference",
+      "expected_conversation_id": "conv-wifi-dropout",
+      "split": "calibration"
+    },
+    {
+      "id": "q-roaming-1",
+      "type": "positive",
+      "query": "smartphone failing to connect to international overseas telecommunication carrier",
+      "expected_conversation_id": "conv-cellular-roaming",
+      "split": "calibration"
+    },
+    {
+      "id": "q-roaming-2",
+      "type": "positive",
+      "query": "troubleshooting mobile antenna signal loss after foreign flight landing",
+      "expected_conversation_id": "conv-cellular-roaming",
+      "split": "calibration"
+    },
+    {
+      "id": "q-2fa-1",
+      "type": "positive",
+      "query": "bypassing login with alphanumeric emergency backup strings",
+      "expected_conversation_id": "conv-2fa-recovery",
+      "split": "calibration"
+    },
+    {
+      "id": "q-2fa-2",
+      "type": "positive",
+      "query": "authenticator device unavailable single use rescue tokens",
+      "expected_conversation_id": "conv-2fa-recovery",
+      "split": "calibration"
+    },
+    {
+      "id": "q-disk-1",
+      "type": "positive",
+      "query": "unmountable internal solid state drive with corrupt controller namespace",
+      "expected_conversation_id": "conv-disk-recovery",
+      "split": "calibration"
+    },
+    {
+      "id": "q-disk-2",
+      "type": "positive",
+      "query": "rescuing data blocks from failing computer laptop NVMe storage",
+      "expected_conversation_id": "conv-disk-recovery",
+      "split": "calibration"
+    },
+    {
+      "id": "q-bcookie-1",
+      "type": "positive",
+      "query": "client header security flags preventing unauthorized script reading",
+      "expected_conversation_id": "conv-browser-cookies",
+      "split": "calibration"
+    },
+    {
+      "id": "q-bcookie-2",
+      "type": "positive",
+      "query": "web session tokens cross site request forgery protection policies",
+      "expected_conversation_id": "conv-browser-cookies",
+      "split": "calibration"
+    },
+    {
+      "id": "q-cookie-1",
+      "type": "positive",
+      "query": "pastry dough spreading too thin and turning brittle on hot pan",
+      "expected_conversation_id": "conv-baked-cookies",
+      "split": "calibration"
+    },
+    {
+      "id": "q-cookie-2",
+      "type": "positive",
+      "query": "baking tips for soft moist sweet bakery treats with chocolate chunks",
+      "expected_conversation_id": "conv-baked-cookies",
+      "split": "calibration"
+    },
+    {
+      "id": "q-py-1",
+      "type": "positive",
+      "query": "managing structured asynchronous task routines and coroutine exceptions",
+      "expected_conversation_id": "conv-python-programming",
+      "split": "calibration"
+    },
+    {
+      "id": "q-py-2",
+      "type": "positive",
+      "query": "concurrent event loop dispatching without blocking execution threads",
+      "expected_conversation_id": "conv-python-programming",
+      "split": "calibration"
+    },
+    {
+      "id": "q-snake-1",
+      "type": "positive",
+      "query": "maintaining vivarium heat gradients and moisture for reptile shedding",
+      "expected_conversation_id": "conv-snake-care",
+      "split": "calibration"
+    },
+    {
+      "id": "q-snake-2",
+      "type": "positive",
+      "query": "captive serpent skin sloughing terrarium thermostat regulation",
+      "expected_conversation_id": "conv-snake-care",
+      "split": "calibration"
+    },
+    {
+      "id": "q-photo-1",
+      "type": "positive",
+      "query": "cleaning up identical camera snapshots occupying disk volume space",
+      "expected_conversation_id": "conv-duplicate-photos",
+      "split": "calibration"
+    },
+    {
+      "id": "q-photo-2",
+      "type": "positive",
+      "query": "identifying redundant visual burst frames using perceptual hashing",
+      "expected_conversation_id": "conv-duplicate-photos",
+      "split": "calibration"
+    },
+    {
+      "id": "q-sync-1",
+      "type": "positive",
+      "query": "multi workstation file version collision resolution algorithms",
+      "expected_conversation_id": "conv-backup-sync",
+      "split": "calibration"
+    },
+    {
+      "id": "q-sync-2",
+      "type": "positive",
+      "query": "distributed storage daemons managing concurrent file revision trees",
+      "expected_conversation_id": "conv-backup-sync",
+      "split": "calibration"
+    },
+    {
+      "id": "q-sqlnul-1",
+      "type": "positive",
+      "query": "binary zero byte handling inside embedded relational database text queries",
+      "expected_conversation_id": "conv-sqlite-nul",
+      "split": "calibration"
+    },
+    {
+      "id": "q-sqlnul-2",
+      "type": "positive",
+      "query": "c tokenizer premature string termination on zero char columns",
+      "expected_conversation_id": "conv-sqlite-nul",
+      "split": "calibration"
+    },
+    {
+      "id": "q-jsnull-1",
+      "type": "positive",
+      "query": "historical ecmascript runtime typing discrepancy for empty object reference",
+      "expected_conversation_id": "conv-js-null",
+      "split": "calibration"
+    },
+    {
+      "id": "q-jsnull-2",
+      "type": "positive",
+      "query": "distinction between absence of an assigned variable versus explicit empty pointer",
+      "expected_conversation_id": "conv-js-null",
+      "split": "calibration"
+    },
+    {
+      "id": "q-rail-1",
+      "type": "positive",
+      "query": "reimbursement claim for locomotive transit stoppage and route interruption",
+      "expected_conversation_id": "conv-rail-refunds",
+      "split": "calibration"
+    },
+    {
+      "id": "q-rail-2",
+      "type": "positive",
+      "query": "passenger compensation form after delayed high speed rail journey",
+      "expected_conversation_id": "conv-rail-refunds",
+      "split": "calibration"
+    },
+    {
+      "id": "q-hotel-1",
+      "type": "positive",
+      "query": "modifying non refundable accommodation booking dates due to medical illness",
+      "expected_conversation_id": "conv-hotel-cancellation",
+      "split": "calibration"
+    },
+    {
+      "id": "q-hotel-2",
+      "type": "positive",
+      "query": "requesting hospitality room deposit voucher credit before scheduled arrival date",
+      "expected_conversation_id": "conv-hotel-cancellation",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-tea-1",
+      "type": "positive",
+      "query": "乌龙茶出汤速度控制与降低茶汤苦涩感",
+      "expected_conversation_id": "conv-chinese-tea",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-tea-2",
+      "type": "positive",
+      "query": "潮州工夫茶沸水高冲与香气激发要领",
+      "expected_conversation_id": "conv-chinese-tea",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-coffee-1",
+      "type": "positive",
+      "query": "手冲咖啡粉层堵水与研磨刻度粗细调整",
+      "expected_conversation_id": "conv-chinese-coffee",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-coffee-2",
+      "type": "positive",
+      "query": "避免浅烘焙咖啡滤杯萃取过度的注水技巧",
+      "expected_conversation_id": "conv-chinese-coffee",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-near-1",
+      "type": "positive",
+      "query": "防止番茄浓汤口感过酸的烹饪调味技巧",
+      "expected_conversation_id": "conv-soup-acidity",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-near-2",
+      "type": "positive",
+      "query": "天然酵母面包酸味过重的发酵控制方案",
+      "expected_conversation_id": "conv-sourdough-bread",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-near-3",
+      "type": "positive",
+      "query": "家用无线网络频繁间歇性掉线故障排查",
+      "expected_conversation_id": "conv-wifi-dropout",
+      "split": "calibration"
+    },
+    {
+      "id": "q-zh-near-4",
+      "type": "positive",
+      "query": "出国漫游无法接入当地移动运营商信号",
+      "expected_conversation_id": "conv-cellular-roaming",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-1",
+      "type": "unrelated",
+      "query": "ancient Roman aqueduct hydraulic engineering and limestone mortar",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-2",
+      "type": "unrelated",
+      "query": "deep sea hydrothermal vent ecosystems and chemosynthetic tubeworms",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-3",
+      "type": "unrelated",
+      "query": "medieval stained glass smelting techniques with cobalt oxides",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-4",
+      "type": "unrelated",
+      "query": "solar photovoltaic perovskite crystallization in vacuum deposition chambers",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-5",
+      "type": "unrelated",
+      "query": "南极冰川冰芯钻探历史气候年代分析",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-6",
+      "type": "unrelated",
+      "query": "古典吉他指弹演奏中的右手轮指发力与音色颗粒感",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-7",
+      "type": "unrelated",
+      "query": "high altitude alpine mountaineering crampon sharpening standards",
+      "split": "calibration"
+    },
+    {
+      "id": "q-unrelated-8",
+      "type": "unrelated",
+      "query": "baroque pipe organ reed stop voicing and mechanical tracker action",
+      "split": "calibration"
+    },
+    {
+      "id": "q-fresh-pos-1",
+      "split": "holdout",
+      "type": "positive",
+      "query": "rescue access after losing the device that generates my login codes",
+      "expected_conversation_id": "conv-2fa-recovery"
+    },
+    {
+      "id": "q-fresh-pos-2",
+      "split": "holdout",
+      "type": "positive",
+      "query": "stop those little biscuits going flat and snapping instead of staying chewy",
+      "expected_conversation_id": "conv-baked-cookies"
+    },
+    {
+      "id": "q-fresh-pos-3",
+      "split": "holdout",
+      "type": "positive",
+      "query": "reuse a room bookings payment when sickness prevents the trip",
+      "expected_conversation_id": "conv-hotel-cancellation"
+    },
+    {
+      "id": "q-fresh-pos-4",
+      "split": "holdout",
+      "type": "positive",
+      "query": "the reptile wont shed cleanly because its enclosure is too dry",
+      "expected_conversation_id": "conv-snake-care"
+    },
+    {
+      "id": "q-fresh-pos-5",
+      "split": "holdout",
+      "type": "positive",
+      "query": "浏览器里能被脚本偷看的登录小饼干该怎么保护",
+      "expected_conversation_id": "conv-browser-cookies"
+    },
+    {
+      "id": "q-fresh-pos-6",
+      "split": "holdout",
+      "type": "positive",
+      "query": "明明不是更改变量值，为什么空值的类型会被判作对象",
+      "expected_conversation_id": "conv-js-null"
+    },
+    {
+      "id": "q-fresh-pos-7",
+      "split": "holdout",
+      "type": "positive",
+      "query": "关于把图片按相似画面找出多份而不是按名字排序的办法",
+      "expected_conversation_id": "conv-duplicate-photos"
+    },
+    {
+      "id": "q-fresh-pos-8",
+      "split": "holdout",
+      "type": "positive",
+      "query": "不是手机漫游，是电脑在屋里开视频会议时断网的那次讨论",
+      "expected_conversation_id": "conv-wifi-dropout"
+    },
+    {
+      "id": "q-fresh-unrelated-1",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "breeding lunar phase schedules for freshwater aquarium shrimp"
+    },
+    {
+      "id": "q-fresh-unrelated-2",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "diplomatic postal conventions governing nineteenth century stamps"
+    },
+    {
+      "id": "q-fresh-unrelated-3",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "凹透镜与凸透镜对平行光束折射的实验"
+    },
+    {
+      "id": "q-fresh-unrelated-4",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "建筑中哥特式飞扶壁怎样承担屋顶水平推力"
+    },
+    {
+      "id": "q-fresh-unrelated-5",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "quasar redshift measurements using an optical spectrograph"
+    },
+    {
+      "id": "q-fresh-unrelated-6",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "ceramic glaze firing curves for copper red pottery"
+    },
+    {
+      "id": "q-fresh-unrelated-7",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "足球守门员扑救点球时的站位训练"
+    },
+    {
+      "id": "q-fresh-unrelated-8",
+      "split": "holdout",
+      "type": "unrelated",
+      "query": "how to engrave copper printing plates for an etching edition"
+    }
+  ]
+}

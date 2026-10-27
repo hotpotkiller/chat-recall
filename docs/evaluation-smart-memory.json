@@ -1,0 +1,84 @@
+{
+  "benchmark": "smart-memory-v2",
+  "synthetic": true,
+  "baseline_public_commit": "3b3bf35327a20a30995df7d0d04f6279a26b9abb",
+  "python_query_allocations": {
+    "before": {
+      "mode": "memory-only",
+      "benchmark": "synthetic-memory-v1",
+      "fixture_corpus_version": "synthetic-2000-msgs-v1",
+      "synthetic": true,
+      "note": "Query phase traced with tracemalloc; excludes index creation, import, and enrich allocations. Native/model process RSS excluded.",
+      "corpus": {
+        "conversations": 200,
+        "messages": 2000,
+        "provider_model_id": "synthetic:16d-deterministic-v1"
+      },
+      "query_benchmark": {
+        "queries_executed": 1,
+        "result_counts": [
+          194
+        ],
+        "elapsed_ms": 75.759,
+        "python_peak_allocated_bytes": 4562214,
+        "python_current_allocated_bytes": 399628
+      }
+    },
+    "after": {
+      "mode": "memory-only",
+      "benchmark": "synthetic-memory-v1",
+      "fixture_corpus_version": "synthetic-2000-msgs-v1",
+      "synthetic": true,
+      "note": "Query phase traced with tracemalloc; excludes index creation, import, and enrich allocations. Native/model process RSS excluded.",
+      "corpus": {
+        "conversations": 200,
+        "messages": 2000,
+        "provider_model_id": "synthetic:16d-deterministic-v1"
+      },
+      "query_benchmark": {
+        "queries_executed": 1,
+        "result_counts": [
+          194
+        ],
+        "elapsed_ms": 102.558,
+        "python_peak_allocated_bytes": 150577,
+        "python_current_allocated_bytes": 65607
+      }
+    },
+    "peak_reduction_fraction": 0.967
+  },
+  "model_residency": {
+    "large_context_stopped_trial": {
+      "synthetic": true,
+      "model": "qwen3-embedding:0.6b",
+      "exit_code": -15,
+      "elapsed_seconds": 2.798,
+      "stop_reason": "system memory free percentage below20",
+      "api_ps_samples": 20,
+      "peak_sampled_model_loaded_bytes": 2370652077,
+      "peak_sampled_model_vram_bytes": 2370652077,
+      "minimum_system_memory_free_percent": 8,
+      "selected_model_loaded_after": false,
+      "measurement_limits": "Ollama api/ps loaded size sampled every0.1s; not peak process RSS. System free percentage is not an application allocation budget."
+    },
+    "small_context_completed_trial": {
+      "synthetic": true,
+      "model": "qwen3-embedding:0.6b",
+      "exit_code": 0,
+      "elapsed_seconds": 67.864,
+      "stop_reason": null,
+      "api_ps_samples": 625,
+      "peak_sampled_model_loaded_bytes": 789871329,
+      "peak_sampled_model_vram_bytes": 789871329,
+      "minimum_system_memory_free_percent": 28,
+      "selected_model_loaded_after": false,
+      "measurement_limits": "Ollama api/ps loaded size sampled every0.1s; not peak process RSS. System free percentage is not an application allocation budget."
+    }
+  },
+  "limits": [
+    "Fixed synthetic corpus and query sample; not a production memory guarantee.",
+    "tracemalloc excludes SQLite native allocations, model memory and whole-process RSS.",
+    "Ollama loaded sizes are sampled API figures, not true peak RSS.",
+    "The host has8GiB unified memory; system-free percentage is an observation, not an application budget."
+  ]
+}

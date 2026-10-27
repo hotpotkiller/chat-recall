@@ -35,7 +35,13 @@ automatic browser importing off. Models are never downloaded automatically.
 - **Verified exact search:** Unicode casefold matching, optional case sensitivity,
   original-text highlights and exhaustive paginated results.
 - **Useful result reading:** explicit conversation actions, source links, nearby
-  dialogue and branch-aware viewing of regenerated replies.
+  dialogue and branch-aware viewing of regenerated replies. Exact results jump
+  directly to the first verified highlight, including deep inside long replies.
+- **Distinct optional Smart search:** describe an idea instead of quoting its words.
+  Search/Enter submits one request; typing makes no embedding requests. Ranked
+  passages explain keyword versus meaning matches and show nearby source dialogue.
+  SQL-scoped streaming and a relevance cutoff bound candidates and reject weak
+  semantic suggestions. Models are optional and Smart stays off by default.
 - **Safe asynchronous UI:** old dialogue responses cannot overwrite newer results;
   query clearing and filter/page changes invalidate stale viewer state.
 - **Reliable local imports:** source/account namespaces, idempotent updates,
@@ -46,6 +52,9 @@ automatic browser importing off. Models are never downloaded automatically.
 
 Optional embedding and reranking adapters are included for research. They are not
 needed for the default application and are not activated by the commands above.
+The local embedding adapter uses a small context and byte-bounded source windows,
+and asks the model to unload after each request. See the
+[Smart design, activation gates and measurement limits](docs/smart-search.md).
 
 ## Architecture
 
@@ -84,6 +93,13 @@ timing sample, first-page p95 changed from **906.422 ms to 133.612 ms** after a
 candidate-containment optimization. These are fixture-specific measurements,
 not a production latency guarantee. Raw reports and the reproduction command
 are in [validation](docs/VALIDATION.md).
+
+The optional Smart evaluation used the actual local embedding model on 64
+synthetic queries. Its fresh subset found the target in the top three for 8/8
+paraphrases, with one keyword-only suggestion among eight unrelated queries and
+no unrelated semantic suggestions. The small context sampled 0.74 GiB loaded
+model memory and unloaded afterward. These are bounded synthetic results;
+[the full report and measurement limits](docs/smart-search.md) explain their scope.
 
 ## Privacy and limitations
 

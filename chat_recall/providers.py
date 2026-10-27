@@ -53,6 +53,8 @@ class OllamaProvider:
     A separately implemented adapter is needed for remote/cloud providers.
     """
 
+    max_input_bytes = 960
+
     def __init__(
         self,
         base_url: str = "http://127.0.0.1:11434",
@@ -78,6 +80,7 @@ class OllamaProvider:
         self.embedding_model = embedding_model
         self.topic_model = topic_model
         self.timeout = timeout
+        self.minimum_similarity = 0.5 if embedding_model == "qwen3-embedding:0.6b" else 0.3
 
     def _request(self, path: str, payload: dict) -> dict:
         request = urllib.request.Request(
@@ -111,10 +114,15 @@ class OllamaProvider:
             return []
         if len(texts) > 32 or any(not isinstance(t, str) or len(t) > 12000 for t in texts):
             raise ValueError("Embed at most 32 explicitly chunked texts of 12000 characters")
+        for t in texts:
+            if len(t.encode("utf-8")) > self.max_input_bytes:
+                raise ProviderError(
+                    f"Ollama input exceeds {self.max_input_bytes} UTF-8 bytes; ask for a shorter Smart description"
+                )
         response = self._request(
             "/api/embed",
             {"model": self.embedding_model, "input": texts, "truncate": False,
-             "keep_alive": "2m", "options": {"num_ctx": 4096}},
+             "keep_alive": 0, "options": {"num_ctx": 1024, "num_batch": 64}},
         )
         vectors = response.get("embeddings")
         if not isinstance(vectors, list) or len(vectors) != len(texts):

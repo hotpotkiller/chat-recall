@@ -7,6 +7,7 @@ ranking, or passage viewing. Semantic indexing is explicitly invoked by enrich.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import math
 from pathlib import Path
@@ -16,6 +17,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .providers import EmbeddingProvider, ProviderError, normalized_vector
+
+_BM25_FUNCTION_WORDS = frozenset({
+    "and", "or", "the", "a", "an", "of", "to", "in", "on", "at", "for",
+    "from", "with", "by", "is", "are", "was", "were", "be", "been", "it",
+    "its", "this", "that", "these", "those", "i", "we", "you", "my", "your",
+    "our", "how", "what", "when", "where", "why", "do", "did", "does", "can",
+    "could", "would", "should", "please", "me", "about",
+})
 
 
 def literal_matches(text: str, query: str, case_sensitive: bool = False) -> list[list[int]]:
@@ -438,19 +447,32 @@ class SearchIndex:
             USING(source_id,account_id,conversation_id)""" + where + " ORDER BY m.id", values))
 
     def _result(self, row: sqlite3.Row, query: str, score: float, kind: str,
-                case_sensitive: bool, start_hint: int = 0) -> dict:
+                case_sensitive: bool, start_hint: int = 0,
+                retrieval_channels: list[str] | None = None,
+                semantic_similarity: float | None = None,
+                semantic_evidence: dict | None = None,
+                dialogue_preview: list[dict] | None = None) -> dict:
         matches = literal_matches(row["text"], query, case_sensitive)
         hint = start_hint if type(start_hint) is int else 0
         focus = matches[0][0] if matches else max(0, min(len(row["text"]), hint))
         start, end = max(0, focus - 85), min(len(row["text"]), focus + 230)
         snippet = ("…" if start else "") + row["text"][start:end] + ("…" if end < len(row["text"]) else "")
-        return {"conversation_id": row["conversation_id"], "message_id": row["message_id"],
-                "source_id": row["source_id"], "account_id": row["account_id"],
-                "title": row["title"], "role": row["role"], "text": row["text"],
-                "snippet": snippet, "matches": matches, "match_count": len(matches),
-                "focus_offset": focus,
-                "score": score, "match_type": kind, "created_at": row["created_at"],
-                "url": self._url(row["source_id"], row["conversation_id"])}
+        res = {"conversation_id": row["conversation_id"], "message_id": row["message_id"],
+               "source_id": row["source_id"], "account_id": row["account_id"],
+               "title": row["title"], "role": row["role"], "text": row["text"],
+               "snippet": snippet, "matches": matches, "match_count": len(matches),
+               "focus_offset": focus,
+               "score": score, "match_type": kind, "created_at": row["created_at"],
+               "url": self._url(row["source_id"], row["conversation_id"])}
+        if retrieval_channels is not None:
+            res["retrieval_channels"] = retrieval_channels
+        if semantic_similarity is not None:
+            res["semantic_similarity"] = semantic_similarity
+        if semantic_evidence is not None:
+            res["semantic_evidence"] = semantic_evidence
+        if dialogue_preview is not None:
+            res["dialogue_preview"] = dialogue_preview
+        return res
 
     @staticmethod
     def _url(source_id: str, conversation_id: str) -> str | None:
@@ -468,83 +490,328 @@ class SearchIndex:
             raise ValueError("limit must be between 1 and 200")
         if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
             raise ValueError("offset must be nonnegative")
+        if role is not None and role not in {"user", "assistant"}:
+            raise ValueError("role must be user or assistant")
         semantic = {"available": False, "used": False, "status": "not_configured",
                     "model_id": None, "errors": []}
         response = {"query": query, "mode": mode, "total": 0, "results": [], "semantic": semantic}
         if not query or not query.strip():
             return response
-        rows = self._rows(role, account_id, query if mode == "exact" else None)
-        by_id = {row["id"]: row for row in rows}
-        if case_sensitive:
-            literal = [row["id"] for row in rows if query and query in row["text"]]
-        else:
-            folded_query = query.casefold()
-            literal = [row["id"] for row in rows if folded_query and folded_query in row["text"].casefold()]
         if mode == "exact":
+            rows = self._rows(role, account_id, query)
+            by_id = {row["id"]: row for row in rows}
+            if case_sensitive:
+                literal = [row["id"] for row in rows if query and query in row["text"]]
+            else:
+                folded_query = query.casefold()
+                literal = [row["id"] for row in rows if folded_query and folded_query in row["text"].casefold()]
             response["total"] = len(literal)
             response["results"] = [self._result(by_id[i], query, 1.0, "exact", case_sensitive)
                                    for i in literal[offset:offset + limit]]
             return response
-        channels: list[list[int]] = []
-        if literal:
-            channels.append(literal[:100])
-        terms = re.findall(r"[^\W_]+", query, re.UNICODE)
+
+        # Smart mode: bounded Python memory; short literal queries and vector CPU may still scan.
+        # Filter messages by role and account_id.
+        where_clauses = []
+        where_params: list[Any] = []
+        if role:
+            where_clauses.append("role=?")
+            where_params.append(role)
+        if account_id is not None:
+            where_clauses.append("account_id=?")
+            where_params.append(account_id)
+        msg_where = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        # Literal candidates via existing trigram superset + Python verification, retain only 100 IDs
+        literal_candidates: list[int] = []
+        tri_query = query.casefold()
+        if len(tri_query) >= 3 and "\x00" not in query:
+            tri_clauses = [
+                "m.id IN (SELECT rowid FROM message_tri WHERE message_tri MATCH ? UNION SELECT id FROM messages WHERE instr(CAST(text AS BLOB), X'00') > 0)"
+            ]
+            tri_params: list[Any] = ['"' + tri_query.replace('"', '""') + '"']
+            if role:
+                tri_clauses.append("m.role=?")
+                tri_params.append(role)
+            if account_id is not None:
+                tri_clauses.append("m.account_id=?")
+                tri_params.append(account_id)
+            tri_sql = "SELECT m.id, m.text FROM messages m WHERE " + " AND ".join(tri_clauses) + " ORDER BY m.id"
+            cursor = self.connection.execute(tri_sql, tri_params)
+        else:
+            # Fallback for short query (< 3 chars) or contains NUL: stream (id, text) with role/account filter
+            cursor = self.connection.execute("SELECT id, text FROM messages" + msg_where + " ORDER BY id", where_params)
+
+        for mid, text in cursor:
+            if case_sensitive:
+                if query in text:
+                    literal_candidates.append(mid)
+            else:
+                if tri_query in text.casefold():
+                    literal_candidates.append(mid)
+            if len(literal_candidates) >= 100:
+                break
+
+        # Lexical SQL BM25 <= 100 with role/account filter
+        terms = [t for t in re.findall(r"[^\W_]+", query, re.UNICODE) if t.lower() not in _BM25_FUNCTION_WORDS]
+        lexical_candidates: list[int] = []
         if terms:
             expression = " OR ".join('"' + term.replace('"', '""') + '"' for term in terms[:40])
-            lexical = [r[0] for r in self.connection.execute(
-                "SELECT rowid FROM message_fts WHERE message_fts MATCH ? ORDER BY bm25(message_fts),rowid",
-                (expression,)) if r[0] in by_id][:100]
-            if lexical:
-                channels.append(lexical)
-        vector_hits, start_hints = set(), {}
-        lexical_hits = {i for channel in channels for i in channel}
+            fts_sql = (
+                "SELECT f.rowid FROM message_fts f JOIN messages m ON m.id = f.rowid "
+                "WHERE message_fts MATCH ?"
+            )
+            fts_params = [expression]
+            if role:
+                fts_sql += " AND m.role=?"
+                fts_params.append(role)
+            if account_id is not None:
+                fts_sql += " AND m.account_id=?"
+                fts_params.append(account_id)
+            fts_sql += " ORDER BY bm25(message_fts), f.rowid LIMIT 100"
+            lexical_candidates = [r[0] for r in self.connection.execute(fts_sql, fts_params)]
+
+        # Semantic retrieval
         provider = self.embedding_provider
+        semantic_channel_lists: dict[str, list[int]] = {}
+        best_semantic_per_msg: dict[int, tuple[float, str, int, int]] = {}  # msg_id -> (sim, channel, start_offset, end_offset)
+
         if provider is not None:
             semantic["model_id"] = provider.model_id
-            stored = list(self.connection.execute("SELECT * FROM vectors WHERE model_id=?", (provider.model_id,)))
-            stored = [r for r in stored if r["message_row"] in by_id]
-            semantic["available"] = bool(stored)
-            indexed_messages = len({r["message_row"] for r in stored})
+            # Stream only needed vector columns joined to filtered messages and matching content_hash/model, count coverage with SQL
+            # First count filtered messages and indexed messages for semantic status
+            count_total_sql = "SELECT COUNT(*) FROM messages" + msg_where
+            total_filtered_messages = self.connection.execute(count_total_sql, where_params).fetchone()[0]
+
+            count_indexed_sql = (
+                "SELECT COUNT(DISTINCT v.message_row) FROM vectors v "
+                "JOIN messages m ON m.id = v.message_row AND m.content_hash = v.content_hash "
+                "WHERE v.model_id = ?"
+            )
+            count_indexed_params: list[Any] = [provider.model_id]
+            if role:
+                count_indexed_sql += " AND m.role = ?"
+                count_indexed_params.append(role)
+            if account_id is not None:
+                count_indexed_sql += " AND m.account_id = ?"
+                count_indexed_params.append(account_id)
+
+            indexed_messages = self.connection.execute(count_indexed_sql, count_indexed_params).fetchone()[0]
+            semantic["available"] = indexed_messages > 0
             semantic["indexed_messages"] = indexed_messages
-            semantic["pending_messages"] = len(rows) - indexed_messages
-            semantic["status"] = "index_pending" if not stored else "partial" if indexed_messages < len(rows) else "ready"
-            if stored:
+            semantic["pending_messages"] = total_filtered_messages - indexed_messages
+            semantic["status"] = "index_pending" if not indexed_messages else "partial" if indexed_messages < total_filtered_messages else "ready"
+
+            # Query embedding never runs if no filtered current vectors
+            if indexed_messages > 0:
                 try:
                     result = provider.embed([query])
                     if not isinstance(result, list) or len(result) != 1:
                         raise ProviderError("Query embedding response count mismatch")
                     query_vector = normalized_vector(result[0])
-                    ranked: dict[str, dict[int, tuple[float, int]]] = {}
-                    for record in stored:
-                        vector = json.loads(record["vector_json"])
-                        if len(vector) != len(query_vector):
-                            raise ProviderError("Stored vector dimensions differ from the query model")
-                        similarity = sum(a * b for a, b in zip(query_vector, vector))
-                        channel = ranked.setdefault(record["channel"], {})
-                        key = record["message_row"]
-                        if key not in channel or similarity > channel[key][0]:
-                            channel[key] = (similarity, record["start_offset"])
-                    for channel in ranked.values():
-                        ordered = sorted(channel, key=lambda i: (-channel[i][0], i))[:100]
-                        channels.append(ordered)
-                        vector_hits.update(ordered)
-                        for i in ordered:
-                            start_hints.setdefault(i, channel[i][1])
+                    threshold = 0.3
+                    if hasattr(provider, "minimum_similarity"):
+                        raw_thresh = provider.minimum_similarity
+                        if isinstance(raw_thresh, bool) or not isinstance(raw_thresh, (int, float)) or not math.isfinite(raw_thresh) or raw_thresh < 0 or raw_thresh > 1:
+                            raise ProviderError("Invalid minimum_similarity configured on provider")
+                        threshold = float(raw_thresh)
+                    semantic["minimum_similarity"] = threshold
+
+                    # Stream only needed vector columns: message_row, channel, start_offset, end_offset, vector_json
+                    vec_sql = (
+                        "SELECT v.message_row, v.channel, v.start_offset, v.end_offset, v.vector_json "
+                        "FROM vectors v JOIN messages m ON m.id = v.message_row AND m.content_hash = v.content_hash "
+                        "WHERE v.model_id = ?"
+                    )
+                    vec_params: list[Any] = [provider.model_id]
+                    if role:
+                        vec_sql += " AND m.role = ?"
+                        vec_params.append(role)
+                    if account_id is not None:
+                        vec_sql += " AND m.account_id = ?"
+                        vec_params.append(account_id)
+                    vec_sql += " ORDER BY v.message_row, v.channel, v.chunk"
+
+                    # Stream ORDER BY message_row and lazily group per message using itertools.groupby.
+                    # Compute at most two local channel maxima + one global best chunk for that message.
+                    # Retain at most 100 unique messages per channel during traversal using deterministic
+                    # score-desc/id-asc cutoff (ranking key: (-sim, mid), pruning worst (+sim, -mid)).
+                    retained_channels: dict[str, dict[int, float]] = {"dialogue": {}, "topic": {}}
+                    retained_best: dict[int, tuple[float, str, int, int]] = {}
+                    expected_dim = len(query_vector)
+
+                    def record_channel(ch: str, mid: int, sim: float) -> None:
+                        d = retained_channels[ch]
+                        if len(d) < 100:
+                            d[mid] = sim
+                        else:
+                            worst_mid = max(d, key=lambda m: (-d[m], m))
+                            if (-sim, mid) < (-d[worst_mid], worst_mid):
+                                del d[worst_mid]
+                                d[mid] = sim
+
+                    cursor = self.connection.execute(vec_sql, vec_params)
+                    for mid, group in itertools.groupby(cursor, key=lambda r: r["message_row"]):
+                        local_channel_max: dict[str, float] = {}
+                        local_best_chunk: tuple[float, str, int, int] | None = None
+                        for row in group:
+                            ch = row["channel"]
+                            if ch not in ("dialogue", "topic"):
+                                continue
+                            try:
+                                vec = json.loads(row["vector_json"])
+                                if not isinstance(vec, (list, tuple)):
+                                    raise ProviderError("Corrupt vector format")
+                                norm_vec = normalized_vector(vec)
+                            except Exception as e:
+                                raise ProviderError("Corrupt or invalid stored vector") from e
+
+                            if len(norm_vec) != expected_dim:
+                                raise ProviderError("Stored vector dimensions differ from the query model")
+
+                            sim = sum(a * b for a, b in zip(query_vector, norm_vec))
+                            if sim >= threshold:
+                                if ch not in local_channel_max or sim > local_channel_max[ch]:
+                                    local_channel_max[ch] = sim
+                                s_off, e_off = row["start_offset"], row["end_offset"]
+                                if local_best_chunk is None:
+                                    local_best_chunk = (sim, ch, s_off, e_off)
+                                else:
+                                    cur_sim, cur_ch, cur_s, cur_e = local_best_chunk
+                                    if sim > cur_sim or (sim == cur_sim and ch == "dialogue" and cur_ch != "dialogue"):
+                                        local_best_chunk = (sim, ch, s_off, e_off)
+
+                        if local_best_chunk is not None:
+                            retained_best[mid] = local_best_chunk
+                            for ch, sim in local_channel_max.items():
+                                record_channel(ch, mid, sim)
+
+                            # Prune retained_best to retained union to prevent unbounded memory growth
+                            surviving = set(retained_channels["dialogue"]).union(retained_channels["topic"])
+                            for dead_mid in [m for m in retained_best if m not in surviving]:
+                                del retained_best[dead_mid]
+
+                    # Final sorted lists per channel
+                    for ch in ("dialogue", "topic"):
+                        d = retained_channels[ch]
+                        if d:
+                            semantic_channel_lists[ch] = sorted(d.keys(), key=lambda m: (-d[m], m))
+
+                    best_semantic_per_msg = retained_best
                     semantic["used"] = True
                 except (ProviderError, ValueError, OSError, TypeError) as exc:
                     semantic["status"] = "provider_error"
                     semantic["errors"].append(str(exc))
+                    # On any query provider/vector error discard ALL semantic candidates and keep truthful keyword fallback.
+                    semantic_channel_lists.clear()
+                    best_semantic_per_msg.clear()
+                    semantic.pop("minimum_similarity", None)
+
+        # RRF combines only actual literal/keyword/semantic channels
+        active_channels: list[tuple[str, list[int]]] = []
+        if literal_candidates:
+            active_channels.append(("literal", literal_candidates))
+        if lexical_candidates:
+            active_channels.append(("keyword", lexical_candidates))
+        for ch in ("dialogue", "topic"):
+            if ch in semantic_channel_lists and semantic_channel_lists[ch]:
+                active_channels.append((ch, semantic_channel_lists[ch]))
+
         scores: dict[int, float] = {}
-        for channel in channels:
-            for rank, key in enumerate(channel, start=1):
-                scores[key] = scores.get(key, 0.0) + 1.0 / (60 + rank)
-        ordered = sorted(scores, key=lambda i: (-scores[i], i))
-        response["total"] = len(ordered)
-        literal_set = set(literal)
-        response["results"] = [self._result(by_id[i], query, scores[i],
-            "hybrid" if i in vector_hits and i in lexical_hits else
-            "semantic" if i in vector_hits else "exact" if i in literal_set else "lexical",
-            case_sensitive, start_hints.get(i, 0)) for i in ordered[offset:offset + limit]]
+        msg_channels: dict[int, list[str]] = {}
+        for ch_name, candidates in active_channels:
+            for rank, mid in enumerate(candidates, start=1):
+                scores[mid] = scores.get(mid, 0.0) + 1.0 / (60 + rank)
+                if mid not in msg_channels:
+                    msg_channels[mid] = []
+                if ch_name not in msg_channels[mid]:
+                    msg_channels[mid].append(ch_name)
+
+        ordered_all = sorted(scores.keys(), key=lambda i: (-scores[i], i))
+        response["total"] = len(ordered_all)
+        page_ids = ordered_all[offset:offset + limit]
+
+        # Fetch complete message/title only for final requested page, preserve deterministic pagination
+        if page_ids:
+            placeholders = ",".join("?" for _ in page_ids)
+            page_rows = self.connection.execute(
+                f"""SELECT m.*, c.title FROM messages m JOIN conversations c
+                USING(source_id,account_id,conversation_id) WHERE m.id IN ({placeholders})""",
+                page_ids
+            ).fetchall()
+            page_by_id = {r["id"]: r for r in page_rows}
+        else:
+            page_by_id = {}
+
+        results = []
+        literal_set = set(literal_candidates)
+        for mid in page_ids:
+            row = page_by_id[mid]
+            ch_list = [c for c in ("literal", "keyword", "dialogue", "topic") if c in msg_channels.get(mid, [])]
+            has_sem = mid in best_semantic_per_msg
+            has_lex = "literal" in ch_list or "keyword" in ch_list
+            if has_sem and has_lex:
+                kind = "hybrid"
+            elif has_sem:
+                kind = "semantic"
+            elif mid in literal_set:
+                kind = "exact"
+            else:
+                kind = "lexical"
+
+            sem_sim = None
+            sem_ev = None
+            start_hint = 0
+            dialogue_preview = None
+            if has_sem:
+                sim, best_ch, s_off, e_off = best_semantic_per_msg[mid]
+                sem_sim = round(sim, 6)
+                sem_ev = {"channel": best_ch, "start_offset": s_off, "end_offset": e_off}
+                start_hint = s_off
+
+                ancestor_snippets = []
+                current_parent_id = row["parent_id"]
+                seen_ancestor_ids = {row["message_id"]}
+                for _ in range(2):
+                    if not current_parent_id or current_parent_id in seen_ancestor_ids:
+                        break
+                    seen_ancestor_ids.add(current_parent_id)
+                    ancestor_row = self.connection.execute(
+                        "SELECT message_id, parent_id, role, text FROM messages "
+                        "WHERE source_id=? AND account_id=? AND conversation_id=? AND message_id=?",
+                        (row["source_id"], row["account_id"], row["conversation_id"], current_parent_id)
+                    ).fetchone()
+                    if ancestor_row is None:
+                        break
+                    raw_text = ancestor_row["text"]
+                    snippet_text = raw_text[:240]
+                    ancestor_snippets.append({
+                        "message_id": ancestor_row["message_id"],
+                        "role": ancestor_row["role"],
+                        "text": snippet_text,
+                        "start_offset": 0,
+                        "end_offset": len(snippet_text),
+                    })
+                    current_parent_id = ancestor_row["parent_id"]
+                ancestor_snippets.reverse()
+                dialogue_preview = ancestor_snippets
+
+            results.append(
+                self._result(
+                    row,
+                    query,
+                    scores[mid],
+                    kind,
+                    case_sensitive,
+                    start_hint=start_hint,
+                    retrieval_channels=ch_list,
+                    semantic_similarity=sem_sim,
+                    semantic_evidence=sem_ev,
+                    dialogue_preview=dialogue_preview,
+                )
+            )
+
+        response["results"] = results
         return response
 
     def context(self, conversation_id: str, message_id: str, source_id: str = "chatgpt",
@@ -583,17 +850,74 @@ class SearchIndex:
                 "messages": [{"id": r["message_id"], "role": r["role"], "text": r["text"],
                               "parent_id": r["parent_id"], "created_at": r["created_at"]} for r in path]}
 
-    def _windows(self, row: sqlite3.Row) -> list[tuple[int, int, str]]:
+    def _windows(self, row: sqlite3.Row, max_input_bytes: int | None = None) -> list[tuple[int, int, str]]:
+        if max_input_bytes is None:
+            history = self.context(row["conversation_id"], row["message_id"], row["source_id"], row["account_id"])["messages"]
+            target = next(i for i, m in enumerate(history) if m["id"] == row["message_id"])
+            prefix = "\n".join(m["role"] + ": " + m["text"] for m in history[max(0, target - 2):target])[-2000:]
+            windows, text, start = [], row["text"], 0
+            while start < len(text):
+                end = min(len(text), start + 3000)
+                windows.append((start, end, prefix + "\n" + row["role"] + ": " + text[start:end]))
+                if end == len(text):
+                    break
+                start = end - 400
+            return windows
+
+        if max_input_bytes != 960:
+            raise ValueError(f"Unsupported enrichment byte budget: {max_input_bytes}")
+
         history = self.context(row["conversation_id"], row["message_id"], row["source_id"], row["account_id"])["messages"]
         target = next(i for i, m in enumerate(history) if m["id"] == row["message_id"])
-        prefix = "\n".join(m["role"] + ": " + m["text"] for m in history[max(0, target - 2):target])[-2000:]
-        windows, text, start = [], row["text"], 0
-        while start < len(text):
-            end = min(len(text), start + 3000)
-            windows.append((start, end, prefix + "\n" + row["role"] + ": " + text[start:end]))
-            if end == len(text):
+        prefix_full = "\n".join(m["role"] + ": " + m["text"] for m in history[max(0, target - 2):target])
+        prefix_bytes = prefix_full.encode("utf-8")
+        if len(prefix_bytes) > 384:
+            prefix_tail = prefix_bytes[-384:].decode("utf-8", errors="ignore")
+        else:
+            prefix_tail = prefix_full
+
+        role_overhead = ("\n" + row["role"] + ": ").encode("utf-8")
+        budget_for_target = 960 - len(prefix_tail.encode("utf-8")) - len(role_overhead)
+        max_chunk_bytes = min(512, budget_for_target)
+        if max_chunk_bytes <= 0:
+            raise ValueError(f"Cannot fit target chunk within enrichment byte budget {max_input_bytes}")
+
+        text = row["text"]
+        text_len = len(text)
+        windows = []
+        start = 0
+
+        while start < text_len:
+            # Bounded forward search for chunk end within max_chunk_bytes
+            # Fast upper bound in codepoints: at most max_chunk_bytes codepoints since each is >= 1 byte
+            tentative_end = min(text_len, start + max_chunk_bytes)
+            # Narrow end if UTF-8 byte length exceeds max_chunk_bytes
+            while tentative_end > start and len(text[start:tentative_end].encode("utf-8")) > max_chunk_bytes:
+                excess_bytes = len(text[start:tentative_end].encode("utf-8")) - max_chunk_bytes
+                # Each excess byte corresponds to at least 1 / 4 codepoints, but excess_bytes // 4 might be 0, so max(1, ...)
+                step_back = max(1, excess_bytes // 4)
+                tentative_end -= step_back
+
+            end = tentative_end
+            if end <= start:
+                # Even 1 character exceeds max_chunk_bytes (e.g. if max_chunk_bytes < 4 and char is 4-byte astral)
+                # But here max_chunk_bytes <= 512, which is >= 4, so end will always be >= start + 1
+                end = start + 1
+
+            chunk_text = text[start:end]
+            derived = prefix_tail + "\n" + row["role"] + ": " + chunk_text
+            windows.append((start, end, derived))
+
+            if end == text_len:
                 break
-            start = end - 400
+
+            chunk_codepoints = end - start
+            overlap = min(64, chunk_codepoints // 4)
+            next_start = end - overlap
+            if next_start <= start:
+                next_start = start + 1
+            start = next_start
+
         return windows
 
     def enrich(self, provider: EmbeddingProvider | None = None, limit: int = 100,
@@ -616,9 +940,11 @@ class SearchIndex:
             ready = self.connection.execute("SELECT * FROM enrichment WHERE message_row=? AND model_id=?", (row["id"], provider.model_id)).fetchone()
             if ready is None or (generate_topics and not ready["topics"]):
                 pending.append(row)
+        raw_budget = getattr(provider, "max_input_bytes", None)
+        max_input_bytes = raw_budget if isinstance(raw_budget, int) and not isinstance(raw_budget, bool) else None
         for row in pending[:limit]:
             try:
-                windows = self._windows(row)
+                windows = self._windows(row, max_input_bytes=max_input_bytes)
                 records = [("dialogue", i, start, end, text) for i, (start, end, text) in enumerate(windows)]
                 if generate_topics:
                     for i, (start, end, text) in enumerate(windows):
@@ -640,7 +966,7 @@ class SearchIndex:
                 self.connection.execute("BEGIN IMMEDIATE")
                 with self.connection:
                     current = self.connection.execute("SELECT * FROM messages WHERE id=?", (row["id"],)).fetchone()
-                    if current is None or current["content_hash"] != row["content_hash"] or self._windows(current) != windows:
+                    if current is None or current["content_hash"] != row["content_hash"] or self._windows(current, max_input_bytes=max_input_bytes) != windows:
                         continue
                     self.connection.execute("DELETE FROM vectors WHERE message_row=? AND model_id=?", (row["id"], provider.model_id))
                     for record, vector in zip(records, vectors):

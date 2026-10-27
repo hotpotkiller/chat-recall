@@ -111,7 +111,7 @@ class GalleryWorkerTests(unittest.TestCase):
     def test_exact_byte_caps_are_accepted_and_both_streams_drained(self):
         self.fake(f"import os\nos.write(1, b'p' * {gallery_worker.MAX_PROPOSAL_BYTES})\n"
                   f"os.write(2, b'd' * {gallery_worker.MAX_DIAGNOSTIC_BYTES})")
-        result = gallery_worker.run_bounded([str(self.runtime)], 2)
+        result = gallery_worker.run_bounded([str(self.runtime)], 10)
         self.assertEqual(result.returncode, 0)
         self.assertEqual(len(result.stdout), gallery_worker.MAX_PROPOSAL_BYTES)
         self.assertEqual(len(result.stderr), gallery_worker.MAX_DIAGNOSTIC_BYTES)

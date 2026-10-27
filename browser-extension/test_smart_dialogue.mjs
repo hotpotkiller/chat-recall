@@ -711,10 +711,10 @@ async function createTestEnv(options = {}) {
   const fullText = vmContext.semanticText(partialSemantic, 25);
   assert.equal(fullText, "25 messages ready for meaning search", "Full coverage must not claim partial");
 
-  // Per-query partial coverage and purpose/example retention in smart mode:
+  // Per-query partial coverage and purpose description in smart mode:
   vm.runInContext("state.mode = 'smart';", vmContext);
   vmContext.renderResults({
-    results: [{ title: "R1", text: "text 1", match_type: "meaning" }],
+    results: [{ title: "R1", text: "text 1", match_type: "semantic" }],
     total: 1,
     semantic: {
       used: true,
@@ -723,11 +723,11 @@ async function createTestEnv(options = {}) {
     },
   });
   const modeNote = elements.get("mode-note").textContent;
-  assert(modeNote.includes("related ideas when wording differs"), "Smart mode note must retain purpose description");
-  assert(modeNote.includes("“fix wifi” finds “network troubleshooting”"), "Smart mode note must retain generic example");
+  assert(modeNote.includes("related dialogue when the wording differs"), "Smart mode note must state honest dialogue purpose");
+  assert(modeNote.includes("Search by a remembered idea or exchange"), "Smart mode note must state honest idea or exchange description");
   assert(modeNote.includes("Meaning coverage is partial: 120 indexed, 30 pending"), "Smart mode note must show per-query partial coverage");
 
-  // Provider-error fallback: semantic.used is explicitly false while retaining purpose/example
+  // Provider-error fallback: semantic.used is explicitly false while retaining purpose description
   vmContext.renderResults({
     results: [{ title: "R1", text: "text 1", match_type: "keyword" }],
     total: 1,
@@ -740,8 +740,7 @@ async function createTestEnv(options = {}) {
   const fallbackNote = elements.get("mode-note").textContent;
   assert(fallbackNote.includes("Keyword fallback is active (embedding provider rate limit)"), "Keyword fallback must be labeled honestly");
   assert(/meaning search was not used/i.test(fallbackNote), "Must never claim meaning was used when semantic.used is false");
-  assert(fallbackNote.includes("related ideas when wording differs"), "Keyword fallback note must retain purpose description");
-  assert(fallbackNote.includes("“fix wifi” finds “network troubleshooting”"), "Keyword fallback note must retain generic example");
+  assert(fallbackNote.includes("related dialogue when the wording differs"), "Keyword fallback note must retain honest dialogue purpose");
 
   // Actual backend contract: not_configured status
   vmContext.renderResults({
@@ -756,8 +755,7 @@ async function createTestEnv(options = {}) {
   const notConfiguredNote = elements.get("mode-note").textContent;
   assert(notConfiguredNote.includes("Keyword fallback is active (meaning search not configured)"), "not_configured status must be reported honestly");
   assert(/meaning search was not used/i.test(notConfiguredNote), "Must never claim meaning was used when used is false");
-  assert(notConfiguredNote.includes("related ideas when wording differs"), "Must retain purpose description");
-  assert(notConfiguredNote.includes("“fix wifi” finds “network troubleshooting”"), "Must retain generic example");
+  assert(notConfiguredNote.includes("related dialogue when the wording differs"), "Must retain honest dialogue purpose");
 
   // Actual backend contract: index_pending status with partial coverage
   vmContext.renderResults({
@@ -775,8 +773,7 @@ async function createTestEnv(options = {}) {
   assert(pendingNote.includes("Keyword fallback is active (meaning index pending)"), "index_pending status must be reported honestly");
   assert(pendingNote.includes("Meaning coverage: 50 indexed, 150 pending (partial)"), "Partial coverage must be reported honestly on index pending");
   assert(/meaning search was not used/i.test(pendingNote), "Must never claim meaning was used when used is false");
-  assert(pendingNote.includes("related ideas when wording differs"), "Must retain purpose description");
-  assert(pendingNote.includes("“fix wifi” finds “network troubleshooting”"), "Must retain generic example");
+  assert(pendingNote.includes("related dialogue when the wording differs"), "Must retain honest dialogue purpose");
 
   // Actual backend contract: provider_error with errors array, partial coverage, and inert markup
   vmContext.renderResults({
@@ -797,9 +794,7 @@ async function createTestEnv(options = {}) {
   assert(providerErrorNote.includes("Keyword fallback is active (<b onmouseover=\"alert(1)\">rate limit exceeded</b>)"), "errors[0] must be reported in fallback note");
   assert(providerErrorNote.includes("Meaning coverage: 100 indexed, 25 pending (partial)"), "Partial coverage must be reported honestly on provider error");
   assert(/meaning search was not used/i.test(providerErrorNote), "Must never claim meaning was used when used is false");
-  assert(providerErrorNote.includes("related ideas when wording differs"), "Must retain purpose description");
-  assert(providerErrorNote.includes("“fix wifi” finds “network troubleshooting”"), "Must retain generic example");
-
+  assert(providerErrorNote.includes("related dialogue when the wording differs"), "Must retain honest dialogue purpose");
   // Inert markup test in error note:
   vmContext.renderResults({
     results: [{ title: "R1", text: "text 1" }],
@@ -813,11 +808,9 @@ async function createTestEnv(options = {}) {
   assert.equal(inertNote.children.length, 0, "Error markup must be rendered inertly without HTML execution");
   assert(inertNote.textContent.includes('<img src=x onerror="alert(1)">'));
 
-  // Assert actual mode-note after real renderResults success and fallback includes idea/wording example:
-  assert(modeNote.includes("related ideas when wording differs"), "Mode note on success must include related ideas explanation");
-  assert(modeNote.includes("“fix wifi” finds “network troubleshooting”"), "Mode note on success must include generic example");
-  assert(fallbackNote.includes("related ideas when wording differs"), "Mode note on fallback must include related ideas explanation");
-  assert(fallbackNote.includes("“fix wifi” finds “network troubleshooting”"), "Mode note on fallback must include generic example");
+  // Assert actual mode-note after real renderResults success and fallback includes honest purpose description:
+  assert(modeNote.includes("related dialogue when the wording differs"), "Mode note on success must include honest purpose description");
+  assert(fallbackNote.includes("related dialogue when the wording differs"), "Mode note on fallback must include honest purpose description");
 }
 
 // Suite 7: Smart pause when semantics unconfigured / unavailable
@@ -1170,4 +1163,553 @@ async function createTestEnv(options = {}) {
   }
 }
 
-console.log("Smart dialogue offline behavior suite passed (activation, visibility, focus, Unicode anchor, partial coverage, keyword fallback, smart pause).");
+// Suite 9: Exact match focus on first verified literal mark inside long messages
+{
+  const env = await createTestEnv();
+  const { vmContext, elements, setContextHandler } = env;
+
+  // 9a: Deep exact hit after astral Unicode characters
+  const astralPrefix = "🚀".repeat(300) + "✨".repeat(200); // 500 code points
+  const matchTerm1 = "VERIFIED_LITERAL_KEYWORD";
+  const intermediateAstral = "🌍".repeat(200);
+  const matchTerm2 = "SECOND_LITERAL_OCCURRENCE";
+  const astralSuffix = "🎉".repeat(300);
+  const fullAstralText = astralPrefix + matchTerm1 + intermediateAstral + matchTerm2 + astralSuffix;
+
+  // Compute exact code point ranges
+  const prefixLength = Array.from(astralPrefix).length; // 500
+  const term1Length = Array.from(matchTerm1).length;
+  const start1 = prefixLength;
+  const end1 = prefixLength + term1Length;
+
+  const intermediateLength = Array.from(intermediateAstral).length;
+  const start2 = end1 + intermediateLength;
+  const end2 = start2 + Array.from(matchTerm2).length;
+
+  const exactAstralResult = {
+    conversation_id: "c-exact-astral",
+    message_id: "m-exact-astral",
+    source_id: "chatgpt",
+    account_id: "default",
+    title: "Deep Exact Astral Dialogue",
+    text: fullAstralText,
+    matches: [[start1, end1], [start2, end2]],
+    match_type: "exact",
+    match_count: 2,
+    focus_offset: start1,
+  };
+
+  setContextHandler(async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      title: "Deep Exact Astral Dialogue",
+      url: "https://chatgpt.com/c/c-exact-astral",
+      messages: [
+        { id: "m-exact-astral", role: "assistant", text: fullAstralText },
+      ],
+    }),
+  }));
+
+  vmContext.renderResults({ results: [exactAstralResult], total: 1 });
+  await vmContext.openContext(exactAstralResult, 0);
+  await new Promise((r) => setImmediate(r));
+
+  const messagesBox = elements.get("messages");
+  const matchedSection = messagesBox.querySelector(".matched");
+  assert(matchedSection, "Matched section must exist");
+
+  const messageText = matchedSection.querySelector(".message-text");
+  assert.equal(messageText.text, fullAstralText, "Original astral Unicode text must be strictly unchanged");
+
+  const marks = messageText.querySelectorAll("mark");
+  assert.equal(marks.length, 2, "Both verified literal occurrences must be rendered as marks");
+  assert.equal(marks[0].textContent, matchTerm1, "First mark text must match exactly");
+  assert.equal(marks[1].textContent, matchTerm2, "Second mark text must match exactly");
+
+  // First verified literal mark must be scrolled into view
+  assert.equal(marks[0].scrolledIntoView, true, "First verified literal mark must be scrolled into view");
+  assert.equal(marks[0].scrollOptions?.block, "center", "First mark must scroll with block: center");
+
+  // Second mark must not be scrolled into view
+  assert.equal(marks[1].scrolledIntoView, false, "Second mark must not be scrolled into view");
+
+  // No invented semantic anchor when literal marks exist
+  const anchor = messageText.querySelector(".semantic-anchor");
+  assert.equal(anchor, null, "No semantic-anchor element must be created when literal marks exist");
+
+  // 9b: Multiple literal hits focusing the first verified mark even if out of order or overlapping
+  {
+    const textWithMultiple = "Intro AAA Middle BBB Outro";
+    const multiResult = {
+      conversation_id: "c-multi",
+      message_id: "m-multi",
+      title: "Multiple Hits",
+      text: textWithMultiple,
+      // Unsorted ranges: second occurrence listed before first
+      matches: [[17, 20], [6, 9]],
+      match_type: "exact",
+      match_count: 2,
+    };
+
+    setContextHandler(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        title: "Multiple Hits",
+        messages: [{ id: "m-multi", role: "assistant", text: textWithMultiple }],
+      }),
+    }));
+
+    vmContext.renderResults({ results: [multiResult], total: 1 });
+    await vmContext.openContext(multiResult, 0);
+    await new Promise((r) => setImmediate(r));
+
+    const curMatched = elements.get("messages").querySelector(".matched");
+    const curMarks = curMatched.querySelectorAll("mark");
+    assert.equal(curMarks.length, 2, "Both marks must be rendered");
+    assert.equal(curMarks[0].textContent, "AAA", "First mark in document order must be AAA");
+    assert.equal(curMarks[1].textContent, "BBB", "Second mark in document order must be BBB");
+    assert.equal(curMarks[0].scrolledIntoView, true, "First mark must be scrolled into view");
+    assert.equal(curMarks[1].scrolledIntoView, false, "Second mark must not be scrolled into view");
+    assert.equal(curMatched.querySelector(".message-text").text, textWithMultiple, "Original text must be unchanged");
+  }
+
+  // 9c: Invalid and missing match spans fall back safely without text corruption or invented marks
+  {
+    const fallbackText = "Long message without valid marks to test fallback behavior.";
+    for (const invalidMatches of [
+      [],
+      null,
+      undefined,
+      [[null, null]],
+      [[-10, 5]],
+      [[10, 5]], // start >= end
+      [[5, 99999]], // exceeds length
+      [["6", "9"]], // non-integer
+      [[NaN, 10]],
+    ]) {
+      const invalidResult = {
+        conversation_id: "c-fallback",
+        message_id: "m-fallback",
+        title: "Invalid Matches Fallback",
+        text: fallbackText,
+        matches: invalidMatches,
+        match_type: "exact",
+      };
+
+      setContextHandler(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          title: "Invalid Matches Fallback",
+          messages: [{ id: "m-fallback", role: "assistant", text: fallbackText }],
+        }),
+      }));
+
+      vmContext.renderResults({ results: [invalidResult], total: 1 });
+      await vmContext.openContext(invalidResult, 0);
+      await new Promise((r) => setImmediate(r));
+
+      const curMatched = elements.get("messages").querySelector(".matched");
+      assert(curMatched, "Matched section must exist");
+      const curText = curMatched.querySelector(".message-text");
+      assert.equal(curText.text, fallbackText, "Original text must be completely intact");
+      const curMarks = curText.querySelectorAll("mark");
+      assert.equal(curMarks.length, 0, "No marks should be created for invalid match ranges");
+
+      // Fallback: scrolls matched section into view
+      assert.equal(curMatched.scrolledIntoView, true, "Matched section must be scrolled into view when no valid marks exist");
+      assert.equal(curMatched.scrollOptions?.block, "start");
+    }
+  }
+
+  // 9d: Fallback to semantic anchor when matches is empty/missing but valid focus_offset is present
+  {
+    const semanticFallbackText = "Hello " + "🌸".repeat(100) + " target idea in long text.";
+    const semanticAnchorResult = {
+      conversation_id: "c-sem-fallback",
+      message_id: "m-sem-fallback",
+      title: "Semantic Fallback With Anchor",
+      text: semanticFallbackText,
+      matches: [],
+      match_type: "exact",
+      focus_offset: 106,
+    };
+
+    setContextHandler(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        title: "Semantic Fallback With Anchor",
+        messages: [{ id: "m-sem-fallback", role: "assistant", text: semanticFallbackText }],
+      }),
+    }));
+
+    vmContext.renderResults({ results: [semanticAnchorResult], total: 1 });
+    await vmContext.openContext(semanticAnchorResult, 0);
+    await new Promise((r) => setImmediate(r));
+
+    const curMatched = elements.get("messages").querySelector(".matched");
+    const curText = curMatched.querySelector(".message-text");
+    assert.equal(curText.text, semanticFallbackText, "Original text must be completely intact");
+    const curMarks = curText.querySelectorAll("mark");
+    assert.equal(curMarks.length, 0, "No marks created");
+
+    const curAnchor = curText.querySelector(".semantic-anchor");
+    assert(curAnchor, "Semantic anchor should be present when no literal marks and valid focus_offset");
+    assert.equal(curAnchor.scrolledIntoView, true, "Semantic anchor must be scrolled into view");
+    assert.equal(curAnchor.scrollOptions?.block, "center");
+  }
+}
+
+// Suite 10: Explicit submit dialogue recall interface, input race cancellation, and dialogue preview
+{
+  // 10a: Smart input event does not debounce or schedule search; resets pending debounce and context viewer
+  {
+    const env = await createTestEnv({
+      config: { token: "synthetic-token", semantic_available: true, cloud_rerank_available: false },
+    });
+    const { vmContext, elements, fetchCalls, scheduledTimeouts, modeInputs } = env;
+    const [, modeSmart] = modeInputs;
+
+    // Switch to smart
+    modeInputs[0].checked = false;
+    modeInputs[1].checked = true;
+    modeSmart.dispatchEvent({ type: "change" });
+
+    // Cue shown on entering smart mode
+    const emptySymbol = elements.get("results").querySelector(".empty-state")?.querySelector("h3");
+    assert(emptySymbol && emptySymbol.textContent.includes("Press Search or Enter to retrieve"), "Entering Smart mode must display concise cue waiting for explicit submit");
+
+    const searchCallsBefore = fetchCalls.filter((c) => c.url.startsWith("/api/search")).length;
+    const timeoutsBefore = scheduledTimeouts.length;
+
+    // Type in query input
+    const queryInput = elements.get("query");
+    queryInput.value = "machine learning dialogue";
+    queryInput.dispatchEvent({ type: "input" });
+
+    // Must NOT schedule runSearch or fetch
+    const searchCallsAfter = fetchCalls.filter((c) => c.url.startsWith("/api/search")).length;
+    assert.equal(searchCallsAfter, searchCallsBefore, "Input event in Smart must not initiate fetch");
+
+    const newTimeouts = scheduledTimeouts.slice(timeoutsBefore);
+    assert.equal(newTimeouts.length, 0, "Input event in Smart must not schedule debounce timer");
+
+    // Clearing input in Smart mode resets UI without calling API
+    queryInput.value = "";
+    queryInput.dispatchEvent({ type: "input" });
+    const searchCallsAfterClear = fetchCalls.filter((c) => c.url.startsWith("/api/search")).length;
+    assert.equal(searchCallsAfterClear, searchCallsBefore, "Clearing query in Smart must reset UI without API call");
+    assert.equal(elements.get("results-title").textContent, "Describe a remembered exchange");
+  }
+
+  // 10b: Deferred race: late pending search/context cannot paint obsolete content when typing in Smart mode;
+  // typing a different nonempty query leaves no old clickable result/pagination and clears busy
+  {
+    const env = await createTestEnv({
+      config: { token: "synthetic-token", semantic_available: true, cloud_rerank_available: false },
+    });
+    const { vmContext, elements, setContextHandler } = env;
+
+    let resolveSlowContext;
+    const slowContextPromise = new Promise((resolve) => { resolveSlowContext = resolve; });
+
+    setContextHandler(async (url) => {
+      if (url.includes("conv-late-smart")) {
+        await slowContextPromise;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            title: "Late Obsolete Context",
+            messages: [{ id: "m-late", role: "assistant", text: "Obsolete text that must not paint" }],
+          }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+
+    const mockResult = {
+      conversation_id: "conv-late-smart",
+      message_id: "m-late",
+      title: "Late Result",
+      text: "late text",
+    };
+    vmContext.renderResults({ results: [mockResult], total: 100 });
+    const openPromise = vmContext.openContext(mockResult, 0);
+
+    assert.equal(elements.get("context-placeholder").hidden, true);
+    assert.equal(elements.get("context-content").hidden, false);
+    assert.equal(elements.get("results").querySelectorAll(".result-card").length, 1);
+    assert.equal(elements.get("pagination").hidden, false);
+
+    // Switch to Smart
+    const [, modeSmart] = env.modeInputs;
+    env.modeInputs[0].checked = false;
+    env.modeInputs[1].checked = true;
+    modeSmart.dispatchEvent({ type: "change" });
+
+    // Entering Smart clears state results/total/offset, resets viewer and shows cue
+    assert.equal(vm.runInContext("state.results.length", vmContext), 0);
+    assert.equal(vm.runInContext("state.total", vmContext), 0);
+    assert.equal(vm.runInContext("state.offset", vmContext), 0);
+    assert.equal(elements.get("results").querySelectorAll(".result-card").length, 0);
+    assert.equal(elements.get("pagination").hidden, true);
+    assert.equal(elements.get("results").getAttribute("aria-busy"), "false");
+
+    // Re-render old result to simulate prior active results before typing
+    vmContext.renderResults({ results: [mockResult], total: 100 });
+    assert.equal(elements.get("results").querySelectorAll(".result-card").length, 1);
+    assert.equal(elements.get("pagination").hidden, false);
+
+    // Type a different nonempty query in Smart:
+    // leaves no old clickable result/pagination, clears busy, shows Press Search or Enter cue, sets query/offset0
+    const queryInput = elements.get("query");
+    queryInput.value = "different query";
+    queryInput.dispatchEvent({ type: "input" });
+
+    assert.equal(elements.get("results").querySelectorAll(".result-card").length, 0, "No old result cards must remain clickable on typing in Smart");
+    assert.equal(elements.get("pagination").hidden, true, "Pagination must be hidden on typing in Smart");
+    assert.equal(elements.get("results").getAttribute("aria-busy"), "false", "aria-busy must be false on typing in Smart");
+    assert.equal(elements.get("results-title").textContent, "Describe a remembered exchange");
+    assert.equal(elements.get("result-count").textContent, "");
+    assert.equal(vm.runInContext("state.results.length", vmContext), 0);
+    assert.equal(vm.runInContext("state.total", vmContext), 0);
+    assert.equal(vm.runInContext("state.offset", vmContext), 0);
+    assert.equal(vm.runInContext("state.query", vmContext), "different query");
+    assert.equal(elements.get("context-placeholder").hidden, false, "Placeholder must be visible immediately on typing in Smart");
+    assert.equal(elements.get("context-content").hidden, true, "Content must be hidden immediately on typing in Smart");
+
+    const cue = elements.get("results").querySelector(".empty-state")?.querySelector("h3");
+    assert(cue && cue.textContent.includes("Press Search or Enter to retrieve"), "Shows Press Search or Enter cue");
+
+    // Late context finishes
+    resolveSlowContext();
+    await openPromise;
+
+    // Must not paint obsolete content
+    assert.equal(elements.get("context-placeholder").hidden, false, "Late context must not reopen viewer");
+    assert.equal(elements.get("context-content").hidden, true);
+    assert(!elements.get("messages").text.includes("Obsolete text that must not paint"), "Obsolete content must not be painted");
+    assert.equal(elements.get("results").querySelectorAll(".result-card").length, 0, "No obsolete results painted");
+  }
+
+  // 10c: Successful explicit submit in Smart sends case_sensitive=0 even if checkbox was checked
+  {
+    const env = await createTestEnv({
+      config: { token: "synthetic-token", semantic_available: true, cloud_rerank_available: false },
+    });
+    const { elements, fetchCalls, modeInputs } = env;
+    const [, modeSmart] = modeInputs;
+
+    elements.get("case-sensitive").checked = true;
+
+    modeInputs[0].checked = false;
+    modeInputs[1].checked = true;
+    modeSmart.dispatchEvent({ type: "change" });
+
+    assert.equal(elements.get("case-sensitive").disabled, true, "Case sensitive checkbox must be disabled in Smart mode");
+    assert.equal(elements.get("query").placeholder, "Describe an idea or remembered dialogue…", "Mode-appropriate placeholder in Smart");
+
+    elements.get("query").value = "distributed consensus";
+    // Submit search form explicitly
+    elements.get("search-form").dispatchEvent({ type: "submit", preventDefault() {} });
+    await new Promise((r) => setImmediate(r));
+
+    const smartSearchCalls = fetchCalls.filter((c) => c.url.startsWith("/api/search"));
+    assert(smartSearchCalls.length > 0, "Explicit submit must execute search");
+    const lastCall = smartSearchCalls[smartSearchCalls.length - 1];
+    const params = new URL("http://localhost" + lastCall.url).searchParams;
+    assert.equal(params.get("q"), "distributed consensus");
+    assert.equal(params.get("mode"), "smart");
+    assert.equal(params.get("case_sensitive"), "0", "Smart search must send case_sensitive=0 despite checkbox having been checked");
+  }
+
+  // 10d: Exact mode retains debouncing and checkbox value
+  {
+    const env = await createTestEnv({
+      config: { token: "synthetic-token", semantic_available: true, cloud_rerank_available: false },
+    });
+    const { elements, fetchCalls, scheduledTimeouts, modeInputs } = env;
+    const [modeExact] = modeInputs;
+
+    modeInputs[1].checked = false;
+    modeInputs[0].checked = true;
+    modeExact.dispatchEvent({ type: "change" });
+    elements.get("case-sensitive").checked = true;
+
+    assert.equal(elements.get("query").placeholder, "Search exact words remembered…");
+
+    const initialFetchCount = fetchCalls.filter((c) => c.url.startsWith("/api/search")).length;
+    elements.get("query").value = "exact literal text";
+    elements.get("query").dispatchEvent({ type: "input" });
+
+    // Exact schedules debounce timer
+    const debounceTimer = scheduledTimeouts.find((t) => t.delay === 250);
+    assert(debounceTimer, "Exact search must debounce input by 250ms");
+
+    // Execute debounced search
+    await debounceTimer.fn();
+    await new Promise((r) => setImmediate(r));
+
+    const exactSearchCalls = fetchCalls.filter((c) => c.url.startsWith("/api/search"));
+    assert.equal(exactSearchCalls.length, initialFetchCount + 1, "Debounced exact search must fetch");
+    const lastCall = exactSearchCalls[exactSearchCalls.length - 1];
+    const params = new URL("http://localhost" + lastCall.url).searchParams;
+    assert.equal(params.get("case_sensitive"), "1", "Exact search must retain case_sensitive checkbox value");
+  }
+
+  // 10e: Smart per-card retrieval reason using known channels/match_type only (no scores/confidence)
+  {
+    const env = await createTestEnv({
+      config: { token: "synthetic-token", semantic_available: true, cloud_rerank_available: false },
+    });
+    const { vmContext, elements, modeInputs } = env;
+    const [, modeSmart] = modeInputs;
+    modeInputs[0].checked = false;
+    modeInputs[1].checked = true;
+    modeSmart.dispatchEvent({ type: "change" });
+
+    const testResults = [
+      { conversation_id: "c1", message_id: "m1", title: "T1", text: "text1", match_type: "exact" },
+      { conversation_id: "c2", message_id: "m2", title: "T2", text: "text2", match_type: "lexical" },
+      { conversation_id: "c3", message_id: "m3", title: "T3", text: "text3", match_type: "semantic" },
+      { conversation_id: "c4", message_id: "m4", title: "T4", text: "text4", match_type: "hybrid", retrieval_channels: ["literal", "keyword", "dialogue"] },
+      { conversation_id: "c5", message_id: "m5", title: "T5", text: "text5", match_type: "lexical", retrieval_channels: ["keyword"] },
+      { conversation_id: "c6", message_id: "m6", title: "T6", text: "text6", match_type: "other_unknown", retrieval_channels: ["unknown_chan"] },
+      { conversation_id: "c7", message_id: "m7", title: "T7", text: "text7", match_type: "other", retrieval_channels: ["literal", "dialogue"] },
+    ];
+
+    vmContext.renderResults({ results: testResults, total: 7 });
+    const cards = elements.get("results").querySelectorAll(".result-card");
+    assert.equal(cards.length, 7);
+
+    const reasons = Array.from(cards).map((c) => c.querySelector(".match-info").textContent);
+    assert.equal(reasons[0], "exact phrase");
+    assert.equal(reasons[1], "keyword match");
+    assert.equal(reasons[2], "related dialogue");
+    assert.equal(reasons[3], "words + meaning");
+    assert.equal(reasons[4], "keyword match");
+    assert.equal(reasons[5], "ranked passage");
+    assert.equal(reasons[6], "words + meaning");
+
+    // Ensure no numeric scores or confidence anywhere in cards
+    const resultsContainerText = elements.get("results").text;
+    assert(!/\b0\.\d+\b/.test(resultsContainerText), "No numeric confidence or scores displayed in result cards");
+  }
+
+  // 10f: Dialogue preview: up to 2 ancestor original excerpts, inert text, capped 240 chars, generic reply with prior question shown
+  {
+    const env = await createTestEnv({
+      config: { token: "synthetic-token", semantic_available: true, cloud_rerank_available: false },
+    });
+    const { vmContext, elements, fetchCalls, setContextHandler, modeInputs } = env;
+    const [, modeSmart] = modeInputs;
+    modeInputs[0].checked = false;
+    modeInputs[1].checked = true;
+    modeSmart.dispatchEvent({ type: "change" });
+
+    const genericYesResult = {
+      conversation_id: "conv-preview-yes",
+      message_id: "msg-yes-123",
+      source_id: "chatgpt",
+      account_id: "work-acct",
+      title: "Confirming deployment settings",
+      text: "Yes, exactly.",
+      match_type: "semantic",
+      dialogue_preview: [
+        {
+          message_id: "msg-prior-q",
+          role: "user",
+          text: '<img src=x onerror="alert(1)"> Does this architecture handle multi-region failover seamlessly?',
+          start_offset: 0,
+          end_offset: 75,
+        },
+        {
+          message_id: "msg-prior-extra",
+          role: "assistant",
+          text: "Z".repeat(300), // Exceeds 240 chars
+        },
+        {
+          message_id: "msg-third-ignored",
+          role: "user",
+          text: "Should be capped at 2 and not appear",
+        },
+      ],
+    };
+
+    vmContext.renderResults({ results: [genericYesResult], total: 1 });
+    const card = elements.get("results").querySelector(".result-card");
+    assert(card, "Card must be rendered");
+
+    // Earlier in this exchange section
+    const earlierBox = card.querySelector(".earlier-exchanges");
+    assert(earlierBox, "Earlier in this exchange block must be rendered");
+    const heading = earlierBox.querySelector(".earlier-heading");
+    assert.equal(heading.textContent, "Earlier in this exchange");
+
+    const items = earlierBox.querySelectorAll(".earlier-item");
+    assert.equal(items.length, 2, "Previews must be capped at 2");
+
+    // First item: generic yes reply has prior question shown with inert markup
+    assert(items[0].text.includes("You"), "Role label must be displayed");
+    assert(items[0].text.includes('<img src=x onerror="alert(1)">'), "Markup must be rendered inertly as text");
+    assert.equal(items[0].querySelectorAll("img").length, 0, "No HTML tags executed in preview");
+
+    // Second item: capped at 240 code points
+    const item2Text = items[1].text;
+    assert(item2Text.includes("AI"), "AI role label");
+    // Text after role label should be capped at 240
+    const rawZ = item2Text.replace(/^AI/, "");
+    assert.equal(Array.from(rawZ).length, 240, "Preview text must be capped at 240 code points");
+
+    // No preview fabricated literal marks in excerpt
+    const excerpt = card.querySelector(".result-excerpt");
+    assert.equal(excerpt.querySelectorAll("mark").length, 0, "No fabricated literal marks in semantic excerpt");
+
+    // Context click on generic reply preserves original primary message_id, source_id, account_id
+    const openBtn = card.querySelector(".open-conversation-btn");
+    openBtn.click();
+    await new Promise((r) => setImmediate(r));
+
+    const lastContextCall = fetchCalls.filter((c) => c.url.startsWith("/api/context")).pop();
+    assert(lastContextCall, "Context call must be made");
+    const params = new URL("http://localhost" + lastContextCall.url).searchParams;
+    assert.equal(params.get("conversation_id"), "conv-preview-yes");
+    assert.equal(params.get("message_id"), "msg-yes-123", "Primary matched message_id must be requested, not preview message_id");
+    assert.equal(params.get("source_id"), "chatgpt");
+    assert.equal(params.get("account_id"), "work-acct");
+  }
+
+  // 10g: Malformed / absent dialogue_preview handled safely
+  {
+    const env = await createTestEnv({
+      config: { token: "synthetic-token", semantic_available: true, cloud_rerank_available: false },
+    });
+    const { vmContext, elements, modeInputs } = env;
+    const [, modeSmart] = modeInputs;
+    modeInputs[0].checked = false;
+    modeInputs[1].checked = true;
+    modeSmart.dispatchEvent({ type: "change" });
+
+    for (const badPreview of [null, undefined, "not an array", [null, "string item", 123]]) {
+      vmContext.renderResults({
+        results: [{
+          conversation_id: "c-bad",
+          message_id: "m-bad",
+          title: "Bad Preview",
+          text: "Safe text",
+          dialogue_preview: badPreview,
+        }],
+        total: 1,
+      });
+      const card = elements.get("results").querySelector(".result-card");
+      assert(card, "Card must render without throwing on malformed dialogue_preview");
+      assert.equal(card.querySelector(".earlier-item")?.textContent || "", "");
+    }
+  }
+}
+
+console.log("Smart dialogue offline behavior suite passed (activation, visibility, focus, Unicode anchor, partial coverage, keyword fallback, smart pause, exact match focus, explicit submit, dialogue preview).");
