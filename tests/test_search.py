@@ -247,6 +247,64 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(self.index.search("after-the-nul")["total"], 0)
         self.assertEqual(self.index.search("entirely replaced")["total"], 1)
 
+    def test_nul_literal_portability_and_simulated_fts_omission(self):
+        # Deterministic regression simulating an FTS/trigram index which omits NUL rows
+        # or truncates indexing at embedded NUL.
+        text_with_nul = "prefix-start\x00suffix-target-value and extra text"
+        payload_1 = {
+            "id": "nul-conv-1",
+            "messages": [
+                {"id": "msg-nul-user", "role": "user", "text": text_with_nul},
+                {"id": "msg-nul-asst", "role": "assistant", "text": "assistant reply\x00suffix-target-value"}
+            ]
+        }
+        payload_other_acc = {
+            "id": "nul-conv-2",
+            "messages": [
+                {"id": "msg-other", "role": "user", "text": "other-acc\x00suffix-target-value"}
+            ]
+        }
+        self.index.import_payload(payload_1, account_id="acc1")
+        self.index.import_payload(payload_other_acc, account_id="acc2")
+
+        # Simulate FTS truncating/omitting NUL rows by removing them from message_tri
+        self.index.connection.execute(
+            "DELETE FROM message_tri WHERE rowid IN (SELECT id FROM messages WHERE instr(CAST(text AS BLOB), X'00') > 0)"
+        )
+        self.index.connection.commit()
+
+        # Verify post-NUL exact recall and exact offsets
+        hits = self.index.search("suffix-target-value", account_id="acc1")
+        self.assertEqual(hits["total"], 2)
+        user_hit = next(r for r in hits["results"] if r["message_id"] == "msg-nul-user")
+        self.assertEqual(user_hit["matches"], [[13, 32]])
+        self.assertEqual(user_hit["text"][13:32], "suffix-target-value")
+        self.assertEqual(user_hit["focus_offset"], 13)
+
+        # Verify role isolation
+        user_only = self.index.search("suffix-target-value", account_id="acc1", role="user")
+        self.assertEqual(user_only["total"], 1)
+        self.assertEqual(user_only["results"][0]["message_id"], "msg-nul-user")
+
+        asst_only = self.index.search("suffix-target-value", account_id="acc1", role="assistant")
+        self.assertEqual(asst_only["total"], 1)
+        self.assertEqual(asst_only["results"][0]["message_id"], "msg-nul-asst")
+
+        # Verify namespace / account_id isolation
+        acc2_hits = self.index.search("suffix-target-value", account_id="acc2")
+        self.assertEqual(acc2_hits["total"], 1)
+        self.assertEqual(acc2_hits["results"][0]["message_id"], "msg-other")
+
+        # Verify updates: updating the text removes old NUL text from recall
+        self.index.import_payload({
+            "id": "nul-conv-1",
+            "messages": [
+                {"id": "msg-nul-user", "role": "user", "text": "updated clean text without keyword"}
+            ]
+        }, account_id="acc1")
+        hits_after_update = self.index.search("suffix-target-value", account_id="acc1", role="user")
+        self.assertEqual(hits_after_update["total"], 0)
+
     def test_input_validation(self):
         for kwargs in ({"mode": "imaginary"}, {"limit": 0}, {"offset": -1}, {"role": "system"}):
             with self.assertRaises(ValueError):

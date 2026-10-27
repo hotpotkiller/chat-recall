@@ -3,7 +3,7 @@
 All public fixtures and benchmark corpora are synthetic. No personal history or
 provider credentials are needed for the default checks.
 
-The clean release snapshot passed 116 Python unit/integration tests, seven
+The clean release snapshot passed 117 Python unit/integration tests, seven
 JavaScript syntax checks and all three offline JavaScript behavior suites before
 publication. Its small default evaluation retrieved all 60 expected exact queries.
 These local release checks do not load an embedding model or contact a chat account.

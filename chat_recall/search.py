@@ -186,6 +186,7 @@ class SearchIndex:
                   REFERENCES conversations(source_id,account_id,conversation_id)
             );
             CREATE INDEX IF NOT EXISTS messages_namespace ON messages(source_id,account_id,conversation_id);
+            CREATE INDEX IF NOT EXISTS messages_with_nul ON messages(id) WHERE instr(CAST(text AS BLOB), X'00') > 0;
             CREATE TABLE IF NOT EXISTS nodes (
                 source_id TEXT NOT NULL, account_id TEXT NOT NULL,
                 conversation_id TEXT NOT NULL, node_id TEXT NOT NULL,
@@ -430,7 +431,7 @@ class SearchIndex:
             clauses.append("m.account_id=?")
             values.append(account_id)
         if literal_query is not None and len(literal_query.casefold()) >= 3 and "\x00" not in literal_query:
-            clauses.append("m.id IN (SELECT rowid FROM message_tri WHERE message_tri MATCH ?)")
+            clauses.append("m.id IN (SELECT rowid FROM message_tri WHERE message_tri MATCH ? UNION SELECT id FROM messages WHERE instr(CAST(text AS BLOB), X'00') > 0)")
             values.append('"' + literal_query.casefold().replace('"', '""') + '"')
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         return list(self.connection.execute("""SELECT m.*,c.title FROM messages m JOIN conversations c
