@@ -1,17 +1,34 @@
 # Chat Recall
 
-[![Offline checks](https://github.com/hotpotkiller/chat-recall/actions/workflows/checks.yml/badge.svg)](https://github.com/hotpotkiller/chat-recall/actions/workflows/checks.yml)
+**Find the words. Read the conversation.**
+
+A private, local search app for ordinary ChatGPT conversations. Exact search finds
+verified text; the reader opens the original exchange and keeps alternate replies
+on their own branches.
+
+[![Checks](https://github.com/hotpotkiller/chat-recall/actions/workflows/checks.yml/badge.svg)](https://github.com/hotpotkiller/chat-recall/actions/workflows/checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Find the exact words in your ChatGPT conversations, then read the original exchange.**
+![Exact search and the original conversation reader, using synthetic chats](docs/images/search-desktop.png)
 
-Chat Recall is a local-first search prototype built with Python's standard library,
-SQLite FTS5 and plain JavaScript. It searches message text, counts overlapping
-occurrences, preserves Unicode highlight offsets and opens the matching branch
-of a conversation. No Python packages, frontend build step or model are required
-for exact search.
+[Try the demo](#try-it-locally) · [How search works](docs/architecture.md) ·
+[Validation](docs/VALIDATION.md) · [Development](docs/DEVELOPMENT.md)
 
-## Try the synthetic demo
+## Two ways to remember
+
+| You remember… | Use | What you get |
+|---|---|---|
+| A word, quote or error code | **Exact**, the default | Every matching occurrence, original-text highlights and paginated results |
+| An idea rather than its wording | **Smart**, optional and experimental | Ranked source passages using keywords and optional local embeddings |
+| The exchange around a result | **Conversation reader** | Original dialogue, source links and the correct reply branch |
+
+Exact needs no model, API key, Python package or frontend build step. Smart is an
+optional research feature: plausible-looking results still need relevance checks.
+See [its design, evaluation and limits](docs/smart-search.md). The current disjoint holdout found the correct passage in the top three for 13/16 queries and missed the quality targets; Exact remains the recommended default.
+
+## Try it locally
+
+Requires **Python 3.11+ with SQLite FTS5**.
 
 ```sh
 git clone https://github.com/hotpotkiller/chat-recall.git
@@ -20,111 +37,79 @@ make bootstrap
 CHAT_RECALL_DATA_DIR=.runtime/demo python3 -m chat_recall serve --demo --open
 ```
 
-Requires Python 3.11+ with SQLite FTS5. Open http://127.0.0.1:8765 if the browser
-does not open automatically. Use another port with `--port 8766` if needed.
+Open **http://127.0.0.1:8765** if the browser does not open. Try `recovery key`,
+`STRASSE`, `ana` or `中文`. The demo uses synthetic conversations; add
+`--port 8766` if the default port is occupied.
 
-Try `recovery key`, `STRASSE`, `ana` or `中文`. The demo contains synthetic data.
 For your own archive, run `python3 -m chat_recall serve --open` and import an
-extracted ChatGPT conversations JSON file through the app. Files remain local.
+extracted ChatGPT conversations JSON file through the app. The default storage
+location is the platform's private app-data directory.
 
-**Current defaults:** Exact search enabled; Smart/embedding processing disabled;
-automatic browser importing off. Models are never downloaded automatically.
+**New-install defaults:** Exact selected; Smart processing off; automatic browser
+importing off. The application never downloads models automatically.
 
-## What it does
+## Built around the original text
 
-- **Verified exact search:** Unicode casefold matching, optional case sensitivity,
-  original-text highlights and exhaustive paginated results.
-- **Useful result reading:** explicit conversation actions, source links, nearby
-  dialogue and branch-aware viewing of regenerated replies. Exact results jump
-  directly to the first verified highlight, including deep inside long replies.
-- **Distinct optional Smart search:** describe an idea instead of quoting its words.
-  Search/Enter submits one request; typing makes no embedding requests. Ranked
-  passages explain keyword versus meaning matches and show nearby source dialogue.
-  SQL-scoped streaming and a relevance cutoff bound candidates and reject weak
-  semantic suggestions. Models are optional and Smart stays off by default.
-- **Safe asynchronous UI:** old dialogue responses cannot overwrite newer results;
-  query clearing and filter/page changes invalidate stale viewer state.
-- **Reliable local imports:** source/account namespaces, idempotent updates,
-  preserved original messages and explicit partial-coverage reporting.
-- **Experimental browser bridge:** paired loopback import, persisted checkpoints,
-  respectful 429 backoff and finite optional backfill. It is off by default and
-  does not establish complete account/project/archive coverage.
+- Unicode-aware literal matching, including overlapping occurrences.
+- Source/account isolation and branch-aware conversation viewing.
+- Safe text rendering: imported markup stays inert.
+- Explicit result actions, keyboard navigation and visible focus states.
+- Optional versioned local embeddings, with query and document encoding kept separate.
+- An experimental paired browser helper with checkpoints and respectful retry behavior.
 
-Optional embedding and reranking adapters are included for research. They are not
-needed for the default application and are not activated by the commands above.
-The local embedding adapter uses a small context and byte-bounded source windows,
-and asks the model to unload after each request. See the
-[Smart design, activation gates and measurement limits](docs/smart-search.md).
+Search covers successfully imported messages. The browser helper uses undocumented
+endpoints; complete account/project/archive coverage and continuous synchronization
+are not established features. Cloud reranking is separate, explicitly opt-in, and
+can transmit selected passages to its configured provider.
 
-## Architecture
+## Small stack, inspectable behavior
 
 ```mermaid
 flowchart LR
-    A[ChatGPT JSON / optional browser bridge] --> B[Validated local import]
-    B --> C[(SQLite original messages + FTS5)]
-    C --> D[Candidate retrieval + literal verification]
-    D --> E[Unicode offsets + occurrence counts]
-    E --> F[Local browser UI]
-    C --> G[Branch-aware original dialogue]
-    G --> F
+    A[ChatGPT export] --> B[Validated local import]
+    B --> C[(SQLite original messages)]
+    C --> D[Verified exact matching]
+    C --> E[Optional Smart retrieval]
+    D --> F[Source-linked conversation reader]
+    E --> F
 ```
 
-The SQLite index narrows candidates; final literal checks verify source text.
-Stored offsets use Unicode code points, which the browser converts safely for
-astral characters. Conversation ancestry keeps regenerated branches separate.
-See [architecture](docs/architecture.md) and [browser setup](docs/browser-helper.md).
+Python's standard library handles the service; SQLite FTS5 narrows candidates;
+plain HTML, CSS and JavaScript provide the interface. Original Unicode offsets
+and conversation ancestry remain the source of truth.
 
-## Tests and measured results
+## Evidence, not just examples
 
 ```sh
 make check
-make check-js       # Node.js required; NODE=/path/to/node is supported
-make eval          # small synthetic evaluation; no model or external API
+make check-js  # Node.js required; NODE=/path/to/node is supported
+make eval      # synthetic exact-search evaluation; no model required
 ```
 
-Checks include real temporary Git/worktree workflows, local HTTP integration,
-Unicode and overlapping-hit oracles, namespace/branch isolation, inert imported
-markup, async UI races, and synthetic browser-helper retry cases. Tests do not
-require personal histories, provider credentials or paid model calls.
+Checks cover Unicode and overlapping matches, account/branch isolation, local HTTP
+boundaries, asynchronous UI races and temporary Git/worktree review flows.
 
-An existing **5,000-conversation / 25,000-message synthetic benchmark** preserved
-all oracle-expected exact results across all pages. In the recorded single-run
-timing sample, first-page p95 changed from **906.422 ms to 133.612 ms** after a
-candidate-containment optimization. These are fixture-specific measurements,
-not a production latency guarantee. Raw reports and the reproduction command
-are in [validation](docs/VALIDATION.md).
+The recorded 5,000-conversation / 25,000-message synthetic exact-search sample
+preserved all oracle-expected matches. Its first-page p95 improved from 906.422 ms
+to 133.612 ms in that single-run comparison; these are fixture-specific timings,
+not a production guarantee. [Read the reports and reproduction steps](docs/VALIDATION.md).
 
-The optional Smart evaluation used the actual local embedding model on 64
-synthetic queries. Its fresh subset found the target in the top three for 8/8
-paraphrases, with one keyword-only suggestion among eight unrelated queries and
-no unrelated semantic suggestions. The small context sampled 0.74 GiB loaded
-model memory and unloaded afterward. These are bounded synthetic results;
-[the full report and measurement limits](docs/smart-search.md) explain their scope.
+Smart is evaluated at **passage level**, with original message identities and
+Unicode spans, unrelated queries, and conversation-disjoint calibration/holdout
+sets. Conversation-level recall is reported separately and is not proof that the
+correct passage was found. [See the current results and memory limits](docs/smart-search.md).
 
-## Privacy and limitations
+## Privacy and maintenance
 
-This public repository contains source code, synthetic fixtures and benchmark
-reports. Personal chats, credentials, databases, model files, machine-specific
-operator records and private development history are not included. Default
-runtime data lives in the platform's private app-data directory; use
-`CHAT_RECALL_DATA_DIR` for an explicit isolated location.
+This repository contains source, synthetic fixtures and reproducible checks.
+Personal histories, credentials, databases, model weights and private operator
+records are excluded. Use `CHAT_RECALL_DATA_DIR` for an isolated development
+archive. Do not put real chats into issues or pull requests.
 
-This is an independent prototype, not an official OpenAI product. Search only
-covers successfully imported messages. The optional browser adapter uses
-undocumented endpoints and may stop working. Full account, archived/project
-discovery, native-app freshness, remote hosting and a signed native wrapper are
-not established features. Imported markup is displayed as inert source text.
+The project uses a small custom Python/Git coordination workflow. An online lead
+assigns bounded worktrees, workers implement, checks execute, and an online review
+binds to the exact commit before integration. Codex is the normal lead; AGY can
+be selected for takeover. This is not an automatic quota detector or an external
+agent-orchestration framework. [Read the maintenance workflow](docs/DEVELOPMENT.md).
 
-## Development and maintenance
-
-Functionality and reproduced bugs take priority over ingestion experiments.
-Use synthetic fixtures, small branches/worktrees, targeted checks and reviewed
-commits. See [development](docs/DEVELOPMENT.md) and [AGENTS.md](AGENTS.md).
-
-Development has used AI-assisted implementation with explicit task boundaries,
-actual test execution and review before integration. Public commits describe
-the resulting behavior; benchmark claims are accompanied by source reports.
-
-## License
-
-[MIT](LICENSE).
+Independent prototype; not an official OpenAI product. Licensed under [MIT](LICENSE).

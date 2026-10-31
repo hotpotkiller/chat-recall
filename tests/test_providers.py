@@ -106,6 +106,177 @@ class ProvidersTests(unittest.TestCase):
         other_model = OllamaProvider(embedding_model="nomic-embed-text")
         self.assertEqual(other_model.minimum_similarity, 0.3)
 
+    def test_query_formatting_and_byte_cap(self):
+        model = OllamaProvider()
+        prefix = model.QWEN_QUERY_PREFIX
+        self.assertIn("Instruct: Given a description of a past conversation", prefix)
+        self.assertIn("\nQuery: ", prefix)
+
+        # embed_query formats query with prefix
+        with patch.object(model, "_request") as mock_req:
+            mock_req.return_value = {"embeddings": [[0.6, 0.8]]}
+            model.embed_query("test query")
+            mock_req.assert_called_once()
+            path, body = mock_req.call_args.args[:2]
+            self.assertEqual(path, "/api/embed")
+            self.assertEqual(body["input"], [f"{prefix}test query"])
+
+        # embed_documents and raw embed do NOT prepend prefix
+        with patch.object(model, "_request") as mock_req:
+            mock_req.return_value = {"embeddings": [[0.6, 0.8]]}
+            model.embed_documents(["doc text"])
+            self.assertEqual(mock_req.call_args.args[1]["input"], ["doc text"])
+
+        with patch.object(model, "_request") as mock_req:
+            mock_req.return_value = {"embeddings": [[0.6, 0.8]]}
+            model.embed(["raw doc text"])
+            self.assertEqual(mock_req.call_args.args[1]["input"], ["raw doc text"])
+
+        # Final byte cap applied AFTER prefix in embed_query
+        prefix_bytes_len = len(prefix.encode("utf-8"))
+        allowed_query_len = 960 - prefix_bytes_len
+        valid_query = "a" * allowed_query_len
+        with patch.object(model, "_request") as mock_req:
+            mock_req.return_value = {"embeddings": [[0.6, 0.8]]}
+            model.embed_query(valid_query)
+            mock_req.assert_called_once()
+
+        overbudget_query = "a" * (allowed_query_len + 1)
+        with patch.object(model, "_request") as mock_req:
+            with self.assertRaises(ProviderError) as ctx:
+                model.embed_query(overbudget_query)
+            self.assertIn("shorter Smart description", str(ctx.exception))
+            mock_req.assert_not_called()
+
+    def test_resolve_identity_metadata_only_and_fingerprint(self):
+        model = OllamaProvider()
+        self.assertIsNone(model.cached_identity)
+        tags_response = {
+            "models": [
+                {"name": "qwen3-embedding:0.6b", "digest": "sha256:abc1234567890"}
+            ]
+        }
+        with patch.object(model, "_request", return_value=tags_response) as mock_req:
+            index_id = model.resolve_identity({"version": "v1", "max_chunk_bytes": 512})
+            self.assertTrue(index_id.startswith("ollama:qwen3-embedding:0.6b:"))
+            self.assertEqual(model.cached_identity, index_id)
+            self.assertEqual(model.index_id, index_id)
+            self.assertEqual(mock_req.call_args.args[0], "/api/tags")
+            self.assertEqual(mock_req.call_args.kwargs.get("timeout"), 5.0)
+
+    def test_resolve_identity_model_matching(self):
+        # Configured with tag (:0.6b) must not match :latest or other tags
+        model = OllamaProvider(embedding_model="qwen3-embedding:0.6b")
+        mismatched_tags = {
+            "models": [
+                {"name": "qwen3-embedding:latest", "digest": "sha256:latestdigest"},
+                {"name": "qwen3-embedding:1.5b", "digest": "sha256:15bdigest"}
+            ]
+        }
+        with patch.object(model, "_request", return_value=mismatched_tags):
+            with self.assertRaises(ProviderError):
+                model.resolve_identity({"version": "v1"})
+
+        # Configured without tag matches :latest when listed
+        bare_model = OllamaProvider(embedding_model="nomic-embed-text")
+        latest_tags = {
+            "models": [
+                {"name": "nomic-embed-text:latest", "digest": "sha256:nomicdigest"}
+            ]
+        }
+        with patch.object(bare_model, "_request", return_value=latest_tags):
+            id_res = bare_model.resolve_identity({"version": "v1"})
+            self.assertTrue(id_res.startswith("ollama:nomic-embed-text:"))
+
+    def test_revision_and_profile_mismatch_exclusion(self):
+        model = OllamaProvider()
+        tags1 = {"models": [{"name": "qwen3-embedding:0.6b", "digest": "sha256:digest111"}]}
+        tags2 = {"models": [{"name": "qwen3-embedding:0.6b", "digest": "sha256:digest222"}]}
+
+        profile1 = {"version": "v1", "max_chunk_bytes": 512}
+        profile2 = {"version": "v1", "max_chunk_bytes": 256}
+
+        with patch.object(model, "_request", return_value=tags1):
+            id_p1 = model.resolve_identity(profile1)
+
+        with patch.object(model, "_request", return_value=tags1):
+            id_p2 = model.resolve_identity(profile2)
+
+        with patch.object(model, "_request", return_value=tags2):
+            id_digest2 = model.resolve_identity(profile1)
+
+        # Profile change changes identity
+        self.assertNotEqual(id_p1, id_p2)
+        # Digest change changes identity
+        self.assertNotEqual(id_p1, id_digest2)
+
+    def test_query_only_template_reuse_of_document_identity(self):
+        model = OllamaProvider()
+        tags = {"models": [{"name": "qwen3-embedding:0.6b", "digest": "sha256:stable_digest"}]}
+        profile = {"version": "v1", "max_chunk_bytes": 512}
+
+        with patch.object(model, "_request", return_value=tags):
+            id1 = model.resolve_identity(profile)
+
+        # Mutate query_template_version and calibration_version
+        model.query_template_version = "qwen-instruct-v2"
+        model.calibration_version = "calibrated-v2"
+
+        with patch.object(model, "_request", return_value=tags):
+            id2 = model.resolve_identity(profile)
+
+        # Changing only query template / calibration must not change document index identity
+        self.assertEqual(id1, id2)
+
+    def test_tag_change_during_inference_rejects_vectors(self):
+        model = OllamaProvider()
+        initial_tags = {"models": [{"name": "qwen3-embedding:0.6b", "digest": "sha256:initial"}]}
+        mutated_tags = {"models": [{"name": "qwen3-embedding:0.6b", "digest": "sha256:mutated"}]}
+
+        # Resolve identity with initial digest
+        with patch.object(model, "_request", return_value=initial_tags):
+            model.resolve_identity({"version": "v1"})
+
+        # Case 1: Tag changes before embedding request
+        with patch.object(model, "_request", side_effect=[mutated_tags]):
+            with self.assertRaises(ProviderError) as ctx:
+                model.embed_query("test query")
+            self.assertIn("Model digest changed", str(ctx.exception))
+
+        # Case 2: Tag changes after embedding request
+        embed_resp = {"embeddings": [[0.6, 0.8] * 512]}
+        with patch.object(model, "_request", side_effect=[initial_tags, embed_resp, mutated_tags]):
+            with self.assertRaises(ProviderError) as ctx:
+                model.embed_documents(["document chunk"])
+            self.assertIn("Model digest changed", str(ctx.exception))
+
+    def test_explicit_unknown_index_id_rejected_zero_http(self):
+        model = OllamaProvider()
+        # Resolve one known identity
+        initial_tags = {"models": [{"name": "qwen3-embedding:0.6b", "digest": "sha256:initial"}]}
+        with patch.object(model, "_request", return_value=initial_tags):
+            known_id = model.resolve_identity({"version": "v1"})
+
+        with patch.object(model, "_request") as mock_req:
+            # Explicit unknown index_id on embed_query must be rejected with ProviderError before ANY HTTP call
+            with self.assertRaises(ProviderError) as ctx_q:
+                model.embed_query("test query", index_id="ollama:qwen3-embedding:0.6b:unknown123")
+            self.assertIn("Unknown or nonmatching index_id", str(ctx_q.exception))
+            mock_req.assert_not_called()
+
+            # Explicit unknown index_id on embed_documents must be rejected with ProviderError before ANY HTTP call
+            with self.assertRaises(ProviderError) as ctx_d:
+                model.embed_documents(["doc text"], index_id="ollama:qwen3-embedding:0.6b:unknown123")
+            self.assertIn("Unknown or nonmatching index_id", str(ctx_d.exception))
+            mock_req.assert_not_called()
+
+            # Omitted index_id preserves backward compatibility (embed_documents / raw embed)
+            mock_req.return_value = {"embeddings": [[0.6, 0.8] * 512]}
+            with patch.object(model, "_fetch_model_digest", return_value="sha256:initial"):
+                res = model.embed(["raw doc"])
+                self.assertEqual(len(res), 1)
+                self.assertEqual(mock_req.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

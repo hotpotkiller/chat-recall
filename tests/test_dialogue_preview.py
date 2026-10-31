@@ -45,6 +45,14 @@ class DialoguePreviewTests(unittest.TestCase):
             (row["id"], channel, chunk, StaticQueryProvider.model_id, row["content_hash"],
              0, len(row["text"]), "derived", json.dumps(norm))
         )
+        self.index.connection.execute(
+            """INSERT INTO enrichment (message_row, model_id, content_hash, topics)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(message_row, model_id) DO UPDATE SET
+               content_hash=excluded.content_hash,
+               topics=MAX(enrichment.topics, excluded.topics)""",
+            (row["id"], StaticQueryProvider.model_id, row["content_hash"], 1 if channel == "topic" else 0)
+        )
         self.index.connection.commit()
 
     def test_generic_reply_shows_bounded_preceding_ancestors_oldest_first(self):
@@ -196,6 +204,32 @@ class DialoguePreviewTests(unittest.TestCase):
         # Root message has no ancestor: dialogue_preview must safely be []
         root_hit = hits_by_id["root-msg"]
         self.assertEqual(root_hit["dialogue_preview"], [])
+
+    def test_cjk_dialogue_preview_codepoints_and_role(self):
+        cjk_parent = "换季时家里小户型衣柜和储物间堆放混乱，衣服和杂物越来越多，应该如何科学规划空间和分类整理？" * 10
+        self.assertGreater(len(cjk_parent), 240)
+        payload = {
+            "id": "cjk-preview-conv",
+            "messages": [
+                {"id": "cjk-root", "role": "user", "text": cjk_parent},
+                {"id": "cjk-child", "parent_id": "cjk-root", "role": "assistant", "text": "分类整理方案"},
+            ],
+        }
+        self.index.import_payload(payload, account_id="cjk-preview-acc")
+        self._seed_vector("cjk-child", account_id="cjk-preview-acc")
+        self.index.embedding_provider = StaticQueryProvider()
+
+        res = self.index.search("整理方案", mode="smart", account_id="cjk-preview-acc")
+        self.assertGreater(res["total"], 0)
+        hit = res["results"][0]
+        self.assertIn("dialogue_preview", hit)
+        preview = hit["dialogue_preview"]
+        self.assertEqual(len(preview), 1)
+        self.assertEqual(preview[0]["message_id"], "cjk-root")
+        self.assertEqual(preview[0]["role"], "user")
+        self.assertEqual(preview[0]["text"], cjk_parent[:240])
+        self.assertEqual(preview[0]["start_offset"], 0)
+        self.assertEqual(preview[0]["end_offset"], 240)
 
 
 if __name__ == "__main__":

@@ -240,6 +240,100 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(job["report"]["processed"], 2)
         self.assertEqual(job["report"]["errors"], [])
 
+    def test_enrich_controls_version_advertised_in_config(self):
+        code, result, _ = self.request("/api/config")
+        self.assertEqual(code, 200)
+        self.assertEqual(result.get("enrich_controls_version"), 1)
+
+    def test_status_account_id_coverage(self):
+        code, result, _ = self.request("/api/status?account_id=custom")
+        self.assertEqual(code, 200)
+        cov = result.get("semantic", {}).get("coverage", {})
+        self.assertEqual(cov.get("account_id"), "custom")
+        self.assertIn("eligible", cov)
+        self.assertIn("current", cov)
+        self.assertIn("pending", cov)
+        self.assertIn("legacy", cov)
+
+    def test_pause_endpoint_auth_and_origin(self):
+        code, _, _ = self.request("/api/enrich/pause", method="POST", body={"job_id": "fake"})
+        self.assertEqual(code, 401)
+
+        code, _, _ = self.request("/api/enrich/pause", method="POST", body={"job_id": "fake"},
+                                  headers={"Authorization": "Bearer " + self.token, "Origin": "https://evil.invalid"})
+        self.assertEqual(code, 403)
+
+        code, res, _ = self.request("/api/enrich/pause", method="POST", body={"job_id": "fake"},
+                                    headers={"Authorization": "Bearer " + self.token})
+        self.assertEqual(code, 400)
+        self.assertIn("error", res)
+
+    def test_pause_flow_and_no_duplicate_worker_during_pausing(self):
+        self.server.provider = object()
+        index = MagicMock()
+        stop_called = threading.Event()
+        finish_event = threading.Event()
+
+        def slow_enrich(*args, **kwargs):
+            should_stop = kwargs.get("should_stop")
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                if should_stop and should_stop():
+                    stop_called.set()
+                    break
+                time.sleep(0.01)
+            finish_event.wait(timeout=2)
+            return {
+                "attempted": 1, "processed": 0, "remaining": 1, "skipped_budget": 0,
+                "paused": True, "stopped_reason": "paused", "errors": [], "model_id": "synthetic"
+            }
+
+        index.enrich.side_effect = slow_enrich
+        with patch.object(self.server, "index", return_value=index):
+            code, start_res, _ = self.request("/api/enrich", method="POST", body={"limit": 10},
+                                              headers={"Authorization": "Bearer " + self.token})
+            self.assertEqual(code, 202)
+            job_id = start_res["job_id"]
+            self.assertIsNotNone(job_id)
+
+            code, pause_res, _ = self.request("/api/enrich/pause", method="POST", body={"job_id": job_id},
+                                              headers={"Authorization": "Bearer " + self.token})
+            self.assertEqual(code, 200)
+            self.assertEqual(pause_res["state"], "pausing")
+
+            code, dup_res, _ = self.request("/api/enrich", method="POST", body={"limit": 10},
+                                            headers={"Authorization": "Bearer " + self.token})
+            self.assertEqual(code, 202)
+            self.assertEqual(dup_res["state"], "pausing")
+
+            finish_event.set()
+            self.wait_for_job("paused")
+            self.assertEqual(self.server.semantic_job["state"], "paused")
+            self.assertTrue(self.server.semantic_job["report"]["paused"])
+
+    def test_enrich_accepts_cursor_and_account_id(self):
+        self.server.provider = object()
+        index = MagicMock()
+        index.enrich.return_value = {
+            "attempted": 1, "processed": 1, "remaining": 0, "errors": [],
+            "next_cursor": None, "pass_exhausted": True
+        }
+        with patch.object(self.server, "index", return_value=index):
+            body = {
+                "limit": 50,
+                "account_id": "user1",
+                "after_cursor": {"after_id": 5, "model_id": "test", "account_id": "user1", "generate_topics": False}
+            }
+            code, res, _ = self.request("/api/enrich", method="POST", body=body,
+                                        headers={"Authorization": "Bearer " + self.token})
+            self.assertEqual(code, 202)
+            self.wait_for_job("complete")
+            index.enrich.assert_called_once()
+            _, kwargs = index.enrich.call_args
+            self.assertEqual(kwargs.get("limit"), 50)
+            self.assertEqual(kwargs.get("account_id"), "user1")
+            self.assertEqual(kwargs.get("after_cursor")["after_id"], 5)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,226 @@
+{
+  "benchmark": "passage-calibration-v3",
+  "synthetic": true,
+  "fixture_hash": "3b85ba810a58ace96ec658d3549ceb867b070a11838bb086873b48d57fa0731e",
+  "fixture_corpus_version": "passage-evaluation-v3",
+  "mode": "ollama-hybrid",
+  "run_scope": "calibration-only",
+  "calibration_only": true,
+  "candidate_thresholds": [
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.65
+  ],
+  "model_id": "ollama:qwen3-embedding:0.6b:0f8caf730ad77ecb",
+  "display_model_id": "ollama:qwen3-embedding:0.6b",
+  "query_template_version": "qwen-instruct-v1",
+  "calibration_version": "provisional-v1",
+  "source_corpus_scope": {
+    "conversations": 8,
+    "messages": 33,
+    "namespaces": [
+      "chatgpt:default"
+    ]
+  },
+  "cache_stats": {
+    "query_vectors_cached": 40,
+    "document_vectors_cached": 38,
+    "total_vectors_cached": 78,
+    "capacity_limit": 1024,
+    "real_provider_calls": 73,
+    "cache_hits": 312
+  },
+  "threshold_results": [
+    {
+      "threshold": 0.45,
+      "metrics": {
+        "passage_recall_at_3": 0.9375,
+        "passage_mrr_at_10": 0.8229,
+        "message_recall_at_3": 0.9688,
+        "message_mrr_at_10": 0.8385,
+        "conversation_recall_at_3": 0.9688,
+        "conversation_mrr_at_10": 0.9688,
+        "unrelated_any_result_false_positive_rate": 0.125,
+        "unrelated_any_result_false_positive_count": 1,
+        "unrelated_semantic_false_positive_rate": 0.125,
+        "expected_positive_count": 32,
+        "completed_positive_count": 32,
+        "expected_unrelated_count": 8,
+        "completed_unrelated_count": 8,
+        "context_identity_errors": 0
+      },
+      "semantic": {
+        "used": true,
+        "positive_semantic_used_count": 32,
+        "unrelated_semantic_used_count": 8,
+        "errors": []
+      },
+      "provider_calls": {
+        "real_provider_calls": 73,
+        "cache_hits": 0
+      },
+      "latency": {
+        "latency_type": "actual-inference",
+        "elapsed_ms": 52934.13,
+        "median_query_ms": 708.995,
+        "p95_query_ms": 725.551
+      },
+      "structure_passed": true
+    },
+    {
+      "threshold": 0.5,
+      "metrics": {
+        "passage_recall_at_3": 0.9062,
+        "passage_mrr_at_10": 0.8073,
+        "message_recall_at_3": 0.9375,
+        "message_mrr_at_10": 0.8229,
+        "conversation_recall_at_3": 0.9688,
+        "conversation_mrr_at_10": 0.9688,
+        "unrelated_any_result_false_positive_rate": 0.0,
+        "unrelated_any_result_false_positive_count": 0,
+        "unrelated_semantic_false_positive_rate": 0.0,
+        "expected_positive_count": 32,
+        "completed_positive_count": 32,
+        "expected_unrelated_count": 8,
+        "completed_unrelated_count": 8,
+        "context_identity_errors": 0
+      },
+      "semantic": {
+        "used": true,
+        "positive_semantic_used_count": 32,
+        "unrelated_semantic_used_count": 8,
+        "errors": []
+      },
+      "provider_calls": {
+        "real_provider_calls": 0,
+        "cache_hits": 78
+      },
+      "latency": {
+        "latency_type": "cached-sweep",
+        "elapsed_ms": 957.35,
+        "median_query_ms": 21.658,
+        "p95_query_ms": 23.23
+      },
+      "structure_passed": true
+    },
+    {
+      "threshold": 0.55,
+      "metrics": {
+        "passage_recall_at_3": 0.8125,
+        "passage_mrr_at_10": 0.7135,
+        "message_recall_at_3": 0.8438,
+        "message_mrr_at_10": 0.7292,
+        "conversation_recall_at_3": 0.8438,
+        "conversation_mrr_at_10": 0.8438,
+        "unrelated_any_result_false_positive_rate": 0.0,
+        "unrelated_any_result_false_positive_count": 0,
+        "unrelated_semantic_false_positive_rate": 0.0,
+        "expected_positive_count": 32,
+        "completed_positive_count": 32,
+        "expected_unrelated_count": 8,
+        "completed_unrelated_count": 8,
+        "context_identity_errors": 0
+      },
+      "semantic": {
+        "used": true,
+        "positive_semantic_used_count": 32,
+        "unrelated_semantic_used_count": 8,
+        "errors": []
+      },
+      "provider_calls": {
+        "real_provider_calls": 0,
+        "cache_hits": 78
+      },
+      "latency": {
+        "latency_type": "cached-sweep",
+        "elapsed_ms": 959.56,
+        "median_query_ms": 21.919,
+        "p95_query_ms": 23.245
+      },
+      "structure_passed": true
+    },
+    {
+      "threshold": 0.6,
+      "metrics": {
+        "passage_recall_at_3": 0.6562,
+        "passage_mrr_at_10": 0.5885,
+        "message_recall_at_3": 0.6875,
+        "message_mrr_at_10": 0.6198,
+        "conversation_recall_at_3": 0.75,
+        "conversation_mrr_at_10": 0.75,
+        "unrelated_any_result_false_positive_rate": 0.0,
+        "unrelated_any_result_false_positive_count": 0,
+        "unrelated_semantic_false_positive_rate": 0.0,
+        "expected_positive_count": 32,
+        "completed_positive_count": 32,
+        "expected_unrelated_count": 8,
+        "completed_unrelated_count": 8,
+        "context_identity_errors": 0
+      },
+      "semantic": {
+        "used": true,
+        "positive_semantic_used_count": 32,
+        "unrelated_semantic_used_count": 8,
+        "errors": []
+      },
+      "provider_calls": {
+        "real_provider_calls": 0,
+        "cache_hits": 78
+      },
+      "latency": {
+        "latency_type": "cached-sweep",
+        "elapsed_ms": 960.12,
+        "median_query_ms": 22.201,
+        "p95_query_ms": 23.103
+      },
+      "structure_passed": true
+    },
+    {
+      "threshold": 0.65,
+      "metrics": {
+        "passage_recall_at_3": 0.5312,
+        "passage_mrr_at_10": 0.5156,
+        "message_recall_at_3": 0.5312,
+        "message_mrr_at_10": 0.5156,
+        "conversation_recall_at_3": 0.5938,
+        "conversation_mrr_at_10": 0.5938,
+        "unrelated_any_result_false_positive_rate": 0.0,
+        "unrelated_any_result_false_positive_count": 0,
+        "unrelated_semantic_false_positive_rate": 0.0,
+        "expected_positive_count": 32,
+        "completed_positive_count": 32,
+        "expected_unrelated_count": 8,
+        "completed_unrelated_count": 8,
+        "context_identity_errors": 0
+      },
+      "semantic": {
+        "used": true,
+        "positive_semantic_used_count": 32,
+        "unrelated_semantic_used_count": 8,
+        "errors": []
+      },
+      "provider_calls": {
+        "real_provider_calls": 0,
+        "cache_hits": 78
+      },
+      "latency": {
+        "latency_type": "cached-sweep",
+        "elapsed_ms": 967.69,
+        "median_query_ms": 22.276,
+        "p95_query_ms": 25.298
+      },
+      "structure_passed": true
+    }
+  ],
+  "gates": {
+    "structure_passed": true,
+    "quality_passed": false,
+    "holdout_passed": false,
+    "rules": {
+      "calibration_only": true,
+      "quality_gate_forbidden_for_partial_scope": true
+    }
+  }
+}

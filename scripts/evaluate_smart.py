@@ -9,6 +9,8 @@ Follows AGENTS.md:
   a deterministic 16-dimensional synthetic provider.
 """
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
@@ -19,11 +21,12 @@ import sys
 import tempfile
 import time
 import tracemalloc
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from chat_recall.providers import OllamaProvider, normalized_vector
+from chat_recall.providers import OllamaProvider, ProviderError, callable_accepts_index_id, normalized_vector
 from chat_recall.search import SearchIndex
 
 
@@ -54,6 +57,8 @@ class RecordingProviderWrapper:
         self._provider = provider
         self.last_query_vector: list[float] | None = None
         self.embed_call_count: int = 0
+        if callable(getattr(provider, "resolve_identity", None)):
+            self.resolve_identity = self._resolve_identity
 
     @property
     def model_id(self) -> str:
@@ -67,10 +72,69 @@ class RecordingProviderWrapper:
     def minimum_similarity(self) -> float:
         return getattr(self._provider, "minimum_similarity", 0.3)
 
+    @property
+    def expected_output_dimension(self) -> int | None:
+        return getattr(self._provider, "expected_output_dimension", None)
+
+    @property
+    def lock(self):
+        return getattr(self._provider, "operation_lock", None) or getattr(self._provider, "lock", None) or getattr(self._provider, "_lock", None)
+
+    @property
+    def operation_lock(self):
+        return self.lock
+
+    @property
+    def query_template_version(self) -> str | None:
+        return getattr(self._provider, "query_template_version", None)
+
+    @property
+    def calibration_version(self) -> str | None:
+        return getattr(self._provider, "calibration_version", None)
+
+    @property
+    def cached_identity(self) -> str | None:
+        if callable(getattr(self._provider, "resolve_identity", None)):
+            return getattr(self._provider, "cached_identity", None)
+        return self._provider.model_id
+
+    @property
+    def index_id(self) -> str | None:
+        if callable(getattr(self._provider, "resolve_identity", None)):
+            return getattr(self._provider, "cached_identity", None) or getattr(self._provider, "index_id", None)
+        return getattr(self._provider, "index_id", None) or self._provider.model_id
+
+    def _resolve_identity(self, document_profile: Any = None) -> str:
+        return self._provider.resolve_identity(document_profile)
+
     def summarize(self, text: str) -> str:
         if callable(getattr(self._provider, "summarize", None)):
             return self._provider.summarize(text)
         raise AttributeError("Provider does not support topic summarization")
+
+    def embed_query(self, query: str, index_id: str | None = None) -> list[float]:
+        self.embed_call_count += 1
+        if callable(getattr(self._provider, "embed_query", None)):
+            if callable_accepts_index_id(self._provider.embed_query):
+                vector = self._provider.embed_query(query, index_id=index_id)
+            else:
+                vector = self._provider.embed_query(query)
+        else:
+            vectors = self._provider.embed([query])
+            if not isinstance(vectors, list) or len(vectors) != 1 or not isinstance(vectors[0], (list, tuple)):
+                raise ProviderError("Provider did not return one embedding for the query")
+            vector = vectors[0]
+        norm = normalized_vector(vector)
+        self.last_query_vector = norm
+        return norm
+
+    def embed_documents(self, texts: list[str], index_id: str | None = None) -> list[list[float]]:
+        self.embed_call_count += 1
+        if callable(getattr(self._provider, "embed_documents", None)):
+            if callable_accepts_index_id(self._provider.embed_documents):
+                return self._provider.embed_documents(texts, index_id=index_id)
+            return self._provider.embed_documents(texts)
+        return self._provider.embed(texts)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         self.embed_call_count += 1
@@ -207,7 +271,8 @@ def evaluate_relevance(args) -> dict:
 
             stored_vectors = []
             if provider:
-                for r in index.connection.execute("SELECT message_row, channel, vector_json FROM vectors WHERE model_id=?", (provider.model_id,)):
+                target_model_id = getattr(provider, "index_id", None) or getattr(provider, "cached_identity", None) or provider.model_id
+                for r in index.connection.execute("SELECT message_row, channel, vector_json FROM vectors WHERE model_id=?", (target_model_id,)):
                     stored_vectors.append({
                         "message_row": r["message_row"],
                         "conversation_id": msg_to_conv.get(r["message_row"]),
@@ -523,7 +588,10 @@ def evaluate_relevance(args) -> dict:
                 "fixture_corpus_version": suite.get("version", "smart-evaluation-v2"),
                 "mode": "ollama-hybrid" if provider else "lexical-baseline-only",
                 "semantic_evaluated": semantic_evaluated,
-                "model_id": getattr(provider, "model_id", None),
+                "model_id": getattr(provider, "index_id", None) or getattr(provider, "cached_identity", None) or getattr(provider, "model_id", None),
+                "display_model_id": getattr(provider, "model_id", None),
+                "query_template_version": getattr(provider, "query_template_version", None),
+                "calibration_version": getattr(provider, "calibration_version", None),
                 "minimum_similarity": collected_minimum_similarity,
                 "import": import_report,
                 "enrichment": enrichment_report,

@@ -237,10 +237,10 @@ async function createTestEnv(options = {}) {
     "context-pane", "context-placeholder", "context-content", "context-title",
     "context-meta", "original-link", "copy-message", "close-context", "messages",
     "import-button", "import-dialog", "close-import", "import-form", "import-file",
-    "import-account", "import-report", "confirm-import", "mode-note",
+    "import-account", "import-report", "confirm-import", "mode-note", "pause-enrichment",
   ];
   const hiddenInitialIds = new Set([
-    "pair-panel", "index-semantics", "cloud-option", "notice", "pagination", "context-content",
+    "pair-panel", "index-semantics", "cloud-option", "notice", "pagination", "context-content", "pause-enrichment",
   ]);
   for (const id of ids) {
     const el = getOrCreate(id);
@@ -299,6 +299,7 @@ async function createTestEnv(options = {}) {
 
   const fetchCalls = [];
   let contextFetchHandler = null;
+  let statusFetchHandler = typeof options.status === "function" ? options.status : (options.status ? (() => options.status) : null);
 
   async function mockFetch(url, fetchOpts = {}) {
     const urlStr = String(url);
@@ -312,13 +313,19 @@ async function createTestEnv(options = {}) {
       };
       return { ok: true, status: 200, json: async () => configData };
     }
-    if (urlStr === "/api/status") {
-      const statusData = {
-        conversations: 1,
-        messages: 10,
-        sources: [],
-        ...(options.status || {}),
-      };
+    if (urlStr.startsWith("/api/status")) {
+      if (statusFetchHandler) {
+        const handlerResult = await statusFetchHandler(urlStr, fetchOpts);
+        return { ok: true, status: 200, json: async () => handlerResult };
+      }
+      const statusData = typeof options.status === "function"
+        ? await options.status(urlStr, fetchOpts)
+        : {
+            conversations: 1,
+            messages: 10,
+            sources: [],
+            ...(typeof options.status === "object" ? options.status : {}),
+          };
       return { ok: true, status: 200, json: async () => statusData };
     }
     if (urlStr.startsWith("/api/context")) {
@@ -335,6 +342,22 @@ async function createTestEnv(options = {}) {
           ],
         }),
       };
+    }
+    if (urlStr.startsWith("/api/enrich/pause")) {
+      if (typeof options.status === "object" && options.status?.semantic_job) {
+        options.status.semantic_job.state = "pausing";
+      }
+      const prevHandler = statusFetchHandler;
+      if (prevHandler) {
+        statusFetchHandler = async (u, f) => {
+          const res = await prevHandler(u, f);
+          if (res && res.semantic_job) {
+            return { ...res, semantic_job: { ...res.semantic_job, state: "pausing" } };
+          }
+          return res;
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({ status: "pausing" }) };
     }
     if (urlStr.startsWith("/api/enrich")) {
       return { ok: true, status: 200, json: async () => ({ enriched: 0 }) };
@@ -392,8 +415,8 @@ async function createTestEnv(options = {}) {
 
   const vmContext = vm.createContext(sandbox);
   vm.runInContext(script, vmContext);
-  // Wait for start() microtasks and initial searches to complete
-  for (let i = 0; i < 10; i++) {
+  // Wait for start() microtasks, async config/status, and initial searches to complete
+  for (let i = 0; i < 25; i++) {
     await new Promise((r) => setImmediate(r));
   }
 
@@ -406,6 +429,7 @@ async function createTestEnv(options = {}) {
     scheduledTimeouts,
     setSelection: (txt) => { activeSelectionText = txt; },
     setContextHandler: (handler) => { contextFetchHandler = handler; },
+    setStatusHandler: (handler) => { statusFetchHandler = handler; },
     modeInputs,
   };
 }
@@ -1710,6 +1734,247 @@ async function createTestEnv(options = {}) {
       assert.equal(card.querySelector(".earlier-item")?.textContent || "", "");
     }
   }
+
+  // 11: Explicit bounded batches, coverage controls, safe pause/resume, and retry remaining
+  {
+    const env = await createTestEnv({
+      config: {
+        token: "synthetic-token",
+        semantic_available: true,
+        cloud_rerank_available: false,
+        enrich_controls_version: 1,
+      },
+      status: {
+        conversations: 5,
+        messages: 20,
+        sources: [{ source_id: "chatgpt", account_id: "work" }],
+        semantic: {
+          configured: true,
+          model_id: "test-model-v2",
+          coverage: { account_id: null, eligible: 20, current: 0, pending: 20, legacy: 0 },
+        },
+        semantic_job: {
+          job_id: "job-1234",
+          state: "running",
+          scope: { account_id: "work", limit: 100, generate_topics: false },
+        },
+      },
+    });
+    const { elements, vmContext, fetchCalls } = env;
+    const indexBtn = elements.get("index-semantics");
+    const pauseBtn = elements.get("pause-enrichment");
+    const statusSpan = elements.get("semantic-status");
+
+    // When running with enrich_controls_version >= 1:
+    // pause button is visible and active; index button is disabled
+    assert.equal(pauseBtn.hidden, false, "Pause button must be visible when running");
+    assert.equal(pauseBtn.disabled, false, "Pause button must be enabled when running");
+    assert.equal(pauseBtn.textContent, "Pause");
+    assert.equal(pauseBtn.getAttribute("aria-label"), "Pause meaning indexing for work");
+    assert.equal(indexBtn.disabled, true, "Index button must be disabled when running");
+    assert.equal(statusSpan.textContent, "Background meaning indexing in progress (work)");
+
+    // Clicking pause sends POST /api/enrich/pause with job_id and updates text
+    pauseBtn.click();
+    await new Promise((r) => setImmediate(r));
+    const pauseCalls = fetchCalls.filter((c) => c.url === "/api/enrich/pause");
+    assert.equal(pauseCalls.length, 1, "Clicking pause must post to /api/enrich/pause");
+    assert.equal(JSON.parse(pauseCalls[0].options.body).job_id, "job-1234");
+    assert.equal(pauseBtn.textContent, "Stopping after current request…");
+    assert.equal(pauseBtn.disabled, true);
+
+    // Paused state: pause button hidden, index button shows Resume
+    elements.get("account").value = "work";
+    env.setStatusHandler(() => ({
+      conversations: 5,
+      messages: 20,
+      sources: [{ source_id: "chatgpt", account_id: "work" }, { source_id: "chatgpt", account_id: "other" }],
+      semantic: {
+        configured: true,
+        model_id: "test-model-v2",
+        coverage: { account_id: "work", eligible: 20, current: 10, pending: 10, legacy: 0 },
+      },
+      semantic_job: {
+        job_id: "job-1234",
+        state: "paused",
+        scope: { account_id: "work", limit: 100, generate_topics: false },
+        report: {
+          attempted: 10,
+          processed: 10,
+          remaining: 10,
+          skipped_budget: 0,
+          next_cursor: { after_id: 10, model_id: "test-model-v2", account_id: "work", generate_topics: false },
+        },
+      },
+    }));
+    await vmContext.refreshStatus();
+    assert.equal(pauseBtn.hidden, true, "Pause button hidden when paused");
+    assert.equal(indexBtn.disabled, false, "Index button enabled when paused");
+    assert.equal(indexBtn.textContent, "Resume");
+    assert.equal(statusSpan.textContent, "Meaning indexing paused (work)");
+
+    // Resuming on account "work" sends the stored after_cursor
+    indexBtn.click();
+    await new Promise((r) => setImmediate(r));
+    const enrichCalls = fetchCalls.filter((c) => c.url === "/api/enrich");
+    assert(enrichCalls.length >= 1);
+    const lastEnrichBody = JSON.parse(enrichCalls[enrichCalls.length - 1].options.body);
+    assert.equal(lastEnrichBody.account_id, "work");
+    assert.equal(lastEnrichBody.after_cursor?.after_id, 10);
+
+    // Cross-account Resume POST regression: switching to account "other" must not inherit "work"'s cursor
+    elements.get("account").value = "other";
+    elements.get("account").dispatchEvent({ type: "change" });
+    await new Promise((r) => setImmediate(r));
+    assert.equal(vm.runInContext("state.enrichCursor", vmContext), null, "Account change must clear enrichCursor");
+
+    indexBtn.click();
+    await new Promise((r) => setImmediate(r));
+    const crossAccountEnrichCalls = fetchCalls.filter((c) => c.url === "/api/enrich");
+    const lastCrossAccountBody = JSON.parse(crossAccountEnrichCalls[crossAccountEnrichCalls.length - 1].options.body);
+    assert.equal(lastCrossAccountBody.account_id, "other");
+    assert.equal(lastCrossAccountBody.after_cursor, undefined, "Different account must never inherit another account's cursor");
+
+    // Paused same-account job with incompatible cursor (e.g. old model) must clear cursor and start fresh batch
+    elements.get("account").value = "work";
+    env.setStatusHandler(() => ({
+      conversations: 5,
+      messages: 20,
+      sources: [{ source_id: "chatgpt", account_id: "work" }],
+      semantic: {
+        configured: true,
+        model_id: "test-model-v2",
+        coverage: { account_id: "work", eligible: 20, current: 10, pending: 10, legacy: 0 },
+      },
+      semantic_job: {
+        job_id: "job-1234",
+        state: "paused",
+        scope: { account_id: "work", limit: 100, generate_topics: false },
+        report: {
+          attempted: 10,
+          processed: 10,
+          remaining: 10,
+          skipped_budget: 0,
+          next_cursor: { after_id: 10, model_id: "old-incompatible-model", account_id: "work", generate_topics: false },
+        },
+      },
+    }));
+    await vmContext.refreshStatus();
+    assert.equal(vm.runInContext("state.enrichCursor", vmContext), null, "Incompatible cursor must be cleared");
+    assert.equal(indexBtn.textContent, "Index next batch", "Paused job without compatible cursor must start fresh batch, not resume");
+    indexBtn.click();
+    await new Promise((r) => setImmediate(r));
+    const freshBatchCalls = fetchCalls.filter((c) => c.url === "/api/enrich");
+    const lastFreshBatch = JSON.parse(freshBatchCalls[freshBatchCalls.length - 1].options.body);
+    assert.equal(lastFreshBatch.account_id, "work");
+    assert.equal(lastFreshBatch.after_cursor, undefined, "Fresh batch must not send incompatible after_cursor");
+
+    // Deferred A/B status race: late A response must not overwrite B coverage/job/cursor
+    let resolveDeferredA;
+    const deferredAPromise = new Promise((resolve) => { resolveDeferredA = resolve; });
+    env.setStatusHandler(async (url) => {
+      if (url.includes("account_id=work")) {
+        return deferredAPromise;
+      }
+      return {
+        conversations: 3,
+        messages: 15,
+        sources: [{ source_id: "chatgpt", account_id: "work" }, { source_id: "chatgpt", account_id: "other" }],
+        semantic: {
+          configured: true,
+          model_id: "test-model-v2",
+          coverage: { account_id: "other", eligible: 15, current: 15, pending: 0, legacy: 0 },
+        },
+        semantic_job: { state: "idle" },
+      };
+    });
+
+    elements.get("account").value = "work";
+    const pendingWorkStatus = vmContext.refreshStatus();
+
+    // User switches to account "other" while request for "work" is still pending
+    elements.get("account").value = "other";
+    await vmContext.refreshStatus();
+    assert.equal(statusSpan.textContent, "15 messages ready for meaning search");
+    assert.equal(vm.runInContext("state.enrichCursor", vmContext), null);
+
+    // Late "work" status arrives with old paused job and cursor
+    resolveDeferredA({
+      conversations: 5,
+      messages: 20,
+      sources: [{ source_id: "chatgpt", account_id: "work" }, { source_id: "chatgpt", account_id: "other" }],
+      semantic: {
+        configured: true,
+        model_id: "test-model-v2",
+        coverage: { account_id: "work", eligible: 20, current: 2, pending: 18, legacy: 0 },
+      },
+      semantic_job: {
+        job_id: "stale-job-A",
+        state: "paused",
+        scope: { account_id: "work", limit: 100, generate_topics: false },
+        report: {
+          next_cursor: { after_id: 2, model_id: "test-model-v2", account_id: "work", generate_topics: false },
+        },
+      },
+    });
+    await pendingWorkStatus;
+
+    // Late A status must be ignored; B's status and null cursor must remain intact
+    assert.equal(statusSpan.textContent, "15 messages ready for meaning search");
+    assert.equal(vm.runInContext("state.enrichCursor", vmContext), null);
+
+    // Pass exhausted with remaining > 0 shows "Some passages need attention" and button "Retry remaining"
+    elements.get("account").value = "work";
+    env.setStatusHandler(() => ({
+      conversations: 5,
+      messages: 20,
+      sources: [{ source_id: "chatgpt", account_id: "work" }],
+      semantic: {
+        configured: true,
+        model_id: "test-model-v2",
+        coverage: { account_id: "work", eligible: 20, current: 15, pending: 5, legacy: 0 },
+      },
+      semantic_job: {
+        job_id: "job-5678",
+        state: "complete",
+        scope: { account_id: "work", limit: 100, generate_topics: false },
+        report: {
+          attempted: 5,
+          processed: 0,
+          remaining: 5,
+          skipped_budget: 5,
+          pass_exhausted: true,
+          next_cursor: null,
+        },
+      },
+    }));
+    await vmContext.refreshStatus();
+    assert.equal(statusSpan.textContent, "Some passages need attention");
+    assert.equal(indexBtn.textContent, "Retry remaining");
+
+    // Clicking "Retry remaining" resets cursor and sends explicit request
+    indexBtn.click();
+    await new Promise((r) => setImmediate(r));
+    const retryCalls = fetchCalls.filter((c) => c.url === "/api/enrich");
+    const lastRetryBody = JSON.parse(retryCalls[retryCalls.length - 1].options.body);
+    assert.equal(lastRetryBody.after_cursor, undefined, "Retry remaining must clear cursor");
+
+    // Old backend without enrich_controls_version >= 1 disables scoped indexing with explanation
+    const oldEnv = await createTestEnv({
+      config: { token: "token", semantic_available: true, enrich_controls_version: 0 },
+      status: {
+        conversations: 2,
+        messages: 10,
+        sources: [{ source_id: "chatgpt", account_id: "legacy-acc" }],
+      },
+    });
+    const oldIndexBtn = oldEnv.elements.get("index-semantics");
+    const oldAccount = oldEnv.elements.get("account");
+    oldAccount.value = "legacy-acc";
+    await oldEnv.vmContext.refreshStatus();
+    assert.equal(oldIndexBtn.disabled, true, "Account-scoped indexing must be disabled on old backend");
+    assert(oldIndexBtn.title.includes("Account-scoped indexing is not supported"));
+  }
 }
 
-console.log("Smart dialogue offline behavior suite passed (activation, visibility, focus, Unicode anchor, partial coverage, keyword fallback, smart pause, exact match focus, explicit submit, dialogue preview).");
+console.log("Smart dialogue offline behavior suite passed (activation, visibility, focus, Unicode anchor, partial coverage, keyword fallback, smart pause, exact match focus, explicit submit, dialogue preview, coverage controls).");

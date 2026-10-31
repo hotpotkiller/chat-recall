@@ -17,7 +17,7 @@ review. Imported HTML must remain inert. Keep secrets and runtime files out of G
 
 The active configured online coordinator plans, assigns, reviews and integrates.
 Codex is the normal primary. Explicit AGY continuation uses online
-`gemini-3.8-flash-high`; bounded implementation uses online Flash Low. Keep one
+`gemini-3.8-flash-high`; bounded implementation uses a separate online Flash High worker. Keep one
 active coordinator, separate worker/reviewer identities and one worktree per
 concurrent task. No automatic quota detection or local-model fallback.
 

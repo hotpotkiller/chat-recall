@@ -1,0 +1,15 @@
+{
+  "synthetic": true,
+  "model": "qwen3-embedding:0.6b",
+  "exit_code": 2,
+  "elapsed_seconds": 82.105,
+  "stop_reason": null,
+  "peak_sampled_model_loaded_bytes": 789871329,
+  "peak_sampled_model_vram_bytes": 789871329,
+  "python_process_max_rss_bytes": 73908224,
+  "python_rss_measurement": "wait4 ru_maxrss for evaluator child",
+  "minimum_system_free_percent": 32,
+  "api_ps_samples": 751,
+  "model_loaded_after": false,
+  "limits": "Synthetic corpus only. wait4 reports evaluator child process peak RSS, including native allocations but excluding the separately running Ollama server; a missing sidecar means the process was interrupted or measurement unavailable. Ollama loaded size is sampled residency, not peak RSS. System free percentage is not a memory-pressure guarantee."
+}

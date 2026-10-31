@@ -21,7 +21,7 @@
   "coordinator_takeover": false,
   "requested_orchestrator_model": "operator-configured online Codex model",
   "worker_priority": [
-    "agy-fast-v1"
+    "agy-worker"
   ],
   "worker_fallback": "No automatic local model loading."
 }

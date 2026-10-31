@@ -5,12 +5,14 @@ import hmac
 import json
 import mimetypes
 import secrets
+import sqlite3
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+from .providers import ProviderError
 from .search import SearchIndex
 
 MAX_IMPORT_BYTES = 64 * 1024 * 1024
@@ -33,7 +35,8 @@ class RecallServer(ThreadingHTTPServer):
         self.provider = provider
         self.reranker = reranker
         self.job_lock = threading.Lock()
-        self.semantic_job = {"state": "idle", "error": None}
+        self.semantic_job = {"state": "idle", "job_id": None, "error": None}
+        self._current_stop_event = None
         self.receipt_path = Path(db_path).with_suffix(".sync.json")
         super().__init__(address, RecallHandler)
 
@@ -56,13 +59,32 @@ class RecallServer(ThreadingHTTPServer):
             temp.chmod(0o600)
             temp.replace(self.receipt_path)
 
-    def start_enrichment(self, *, limit=100, generate_topics=False):
+    def start_enrichment(self, *, limit=100, generate_topics=False, account_id=None, after_cursor=None):
         if self.provider is None:
             raise ValueError("Configure an embedding provider before semantic indexing")
+        if type(limit) is not int or isinstance(limit, bool) or not (1 <= limit <= 1000):
+            raise ValueError("Use enrichment limit 1–1000")
+        if type(generate_topics) is not bool:
+            raise ValueError("generate_topics must be a boolean")
+        if account_id is not None:
+            if isinstance(account_id, bool) or not isinstance(account_id, str) or not account_id or len(account_id) > 1024:
+                raise ValueError("Invalid account_id")
+        if after_cursor is not None and not isinstance(after_cursor, dict):
+            raise ValueError("after_cursor must be an object")
+
         with self.job_lock:
-            if self.semantic_job["state"] == "running":
+            if self.semantic_job.get("state") in ("running", "pausing"):
                 return dict(self.semantic_job)
-            self.semantic_job = {"state": "running", "error": None}
+            job_id = secrets.token_hex(16)
+            stop_event = threading.Event()
+            self._current_stop_event = stop_event
+            self.semantic_job = {
+                "job_id": job_id,
+                "state": "running",
+                "error": None,
+                "scope": {"account_id": account_id, "limit": limit, "generate_topics": generate_topics},
+                "progress": {"attempted": 0, "processed": 0, "remaining": None, "skipped_budget": 0},
+            }
 
         def run():
             index = None
@@ -70,31 +92,108 @@ class RecallServer(ThreadingHTTPServer):
             error = None
             try:
                 index = self.index()
-                report = index.enrich(limit=limit, generate_topics=generate_topics)
-            except Exception as exc:
+                def on_progress(p):
+                    with self.job_lock:
+                        if self.semantic_job.get("job_id") == job_id:
+                            self.semantic_job["progress"] = {
+                                "attempted": p.get("attempted", 0),
+                                "processed": p.get("processed", 0),
+                                "remaining": p.get("remaining"),
+                                "skipped_budget": p.get("skipped_budget", 0),
+                            }
+                report = index.enrich(
+                    limit=limit,
+                    generate_topics=generate_topics,
+                    account_id=account_id,
+                    after_cursor=after_cursor,
+                    should_stop=stop_event.is_set,
+                    progress=on_progress,
+                )
+            except ProviderError:
+                error = "provider_error"
+            except sqlite3.Error:
+                error = "sqlite_error"
+            except OSError as exc:
                 error = str(exc)
+            except Exception:
+                error = "unexpected_error"
             finally:
+                cleanup_error = None
                 if index is not None:
                     try:
                         index.close()
-                    except Exception as exc:
-                        error = str(exc)
+                    except OSError as exc:
+                        cleanup_error = str(exc)
+                    except Exception:
+                        cleanup_error = "cleanup_error"
                 # Publish terminal state only after cleanup, so an immediately
                 # retried batch cannot be overwritten by the old worker.
                 with self.job_lock:
-                    if error is not None:
-                        job = {"state": "failed", "error": error}
-                        if report is not None:
-                            job["report"] = report
-                        self.semantic_job = job
-                    elif report is not None and report.get("errors"):
-                        state = "partial" if report.get("processed", 0) > 0 else "failed"
-                        self.semantic_job = {"state": state, "error": None, "report": report}
-                    else:
-                        self.semantic_job = {"state": "complete", "error": None, "report": report}
+                    if self.semantic_job.get("job_id") == job_id:
+                        scope = {"account_id": account_id, "limit": limit, "generate_topics": generate_topics}
+                        # Cleanup failure remains failed (existing contract), preserving prior report counts
+                        if cleanup_error is not None:
+                            self.semantic_job = {
+                                "job_id": job_id,
+                                "state": "failed",
+                                "error": cleanup_error,
+                                "scope": scope,
+                            }
+                            if report is not None:
+                                self.semantic_job["report"] = report
+                        elif report is not None and report.get("paused") and error is None:
+                            self.semantic_job = {
+                                "job_id": job_id,
+                                "state": "paused",
+                                "error": None,
+                                "report": report,
+                                "scope": scope,
+                            }
+                        elif error is not None:
+                            state = "failed"
+                            job = {"job_id": job_id, "state": state, "error": error, "scope": scope}
+                            if report is not None:
+                                job["report"] = report
+                            self.semantic_job = job
+                        elif report is None:
+                            self.semantic_job = {
+                                "job_id": job_id,
+                                "state": "failed",
+                                "error": "missing_report",
+                                "scope": scope,
+                            }
+                        elif report.get("errors"):
+                            state = "partial" if report.get("processed", 0) > 0 else "failed"
+                            self.semantic_job = {
+                                "job_id": job_id,
+                                "state": state,
+                                "error": None,
+                                "report": report,
+                                "scope": scope,
+                            }
+                        else:
+                            self.semantic_job = {
+                                "job_id": job_id,
+                                "state": "complete",
+                                "error": None,
+                                "report": report,
+                                "scope": scope,
+                            }
 
         threading.Thread(target=run, daemon=True, name="recall-enrichment").start()
         return dict(self.semantic_job)
+
+    def pause_enrichment(self, *, job_id: str):
+        with self.job_lock:
+            current_job_id = self.semantic_job.get("job_id")
+            current_state = self.semantic_job.get("state")
+            if not current_job_id or current_job_id != job_id:
+                raise ValueError("Stale or invalid job_id")
+            if current_state == "running":
+                self.semantic_job["state"] = "pausing"
+                if self._current_stop_event is not None:
+                    self._current_stop_event.set()
+            return dict(self.semantic_job)
 
 
 class RecallHandler(BaseHTTPRequestHandler):
@@ -169,16 +268,19 @@ class RecallHandler(BaseHTTPRequestHandler):
                                     "extension_origins": sorted(self.server.extension_origins),
                                     "semantic_available": self.server.provider is not None,
                                     "cloud_rerank_available": self.server.reranker is not None,
-                                    "cloud_rerank_model": getattr(self.server.reranker, "model_id", None)})
+                                    "cloud_rerank_model": getattr(self.server.reranker, "model_id", None),
+                                    "enrich_controls_version": 1})
         if parsed.path.startswith("/api/"):
             if self.headers.get("Origin") in self.server.extension_origins and not self._authorized():
                 return self._error(401, "A paired bearer token is required")
             index = self.server.index()
             try:
                 if parsed.path == "/api/status":
-                    result = index.status()
+                    account_id = get("account_id") or None
+                    result = index.status(account_id=account_id)
                     result["sync_receipts"] = self.server.read_receipts()
-                    result["semantic_job"] = dict(self.server.semantic_job)
+                    with self.server.job_lock:
+                        result["semantic_job"] = dict(self.server.semantic_job)
                 elif parsed.path == "/api/search":
                     limit, offset = int(get("limit", "20")), int(get("offset", "0"))
                     if not 1 <= limit <= 100 or offset < 0:
@@ -237,11 +339,37 @@ class RecallHandler(BaseHTTPRequestHandler):
             if not isinstance(data, dict):
                 raise ValueError("Request body must be an object")
             path = urlsplit(self.path).path
+            if path == "/api/enrich/pause":
+                job_id = data.get("job_id")
+                if not isinstance(job_id, str) or not job_id:
+                    return self._error(400, "job_id is required")
+                try:
+                    res = self.server.pause_enrichment(job_id=job_id)
+                    return self._send(200, res)
+                except ValueError as exc:
+                    return self._error(400, str(exc))
             if path == "/api/enrich":
-                limit = int(data.get("limit", 100))
-                if not 1 <= limit <= 1000:
-                    raise ValueError("Use enrichment limit 1–1000")
-                return self._send(202, self.server.start_enrichment(limit=limit, generate_topics=bool(data.get("generate_topics", False))))
+                raw_limit = data.get("limit", 100)
+                if type(raw_limit) is not int or isinstance(raw_limit, bool) or not (1 <= raw_limit <= 1000):
+                    return self._error(400, "Use enrichment limit 1–1000")
+                if "generate_topics" in data and type(data["generate_topics"]) is not bool:
+                    return self._error(400, "generate_topics must be a boolean")
+                account_id = data.get("account_id")
+                if account_id is not None and (isinstance(account_id, bool) or not isinstance(account_id, str) or not account_id or len(account_id) > 1024):
+                    return self._error(400, "Invalid account_id")
+                after_cursor = data.get("after_cursor")
+                if after_cursor is not None and not isinstance(after_cursor, dict):
+                    return self._error(400, "Invalid after_cursor")
+                try:
+                    job = self.server.start_enrichment(
+                        limit=raw_limit,
+                        generate_topics=bool(data.get("generate_topics", False)),
+                        account_id=account_id,
+                        after_cursor=after_cursor,
+                    )
+                    return self._send(202, job)
+                except ValueError as exc:
+                    return self._error(400, str(exc))
             if path == "/api/demo":
                 payload = json.loads(FIXTURE.read_text("utf-8"))
                 source, account = "chatgpt", "demo"

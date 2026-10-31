@@ -24,9 +24,12 @@ def launch_spec(workflow, task_id=None, take_over=False, dry_run=False):
     common = (
         f"Canonical repository: {canonical}. Read its AGENTS.md and current governance policy; "
         "Codex is normal primary coordinator, with explicit optional AGY High handover when requested. "
-        "Keep Smart disabled and importing stopped. Use synthetic fixtures only; no private histories, "
-        "credentials, real embeddings or model downloads. Focus functions and reproduced bugs, "
-        "with targeted checks rather than repeated imports. "
+        "Preserve latest explicitly authorized personal Smart state, "
+        "Exact default, importing stopped, and automatic bulk indexing off; public/new-install defaults remain opt-in. "
+        "Do not hard-code all Smart off or on. Ordinary synthetic checks never invoke models; explicit bounded "
+        "synthetic model evaluations require online-lead approval and user scope. No policy inference from stale docs "
+        "may override user instructions. Use synthetic fixtures only; no private histories, credentials, or model downloads. "
+        "Focus functions and reproduced bugs, with targeted checks rather than repeated imports. "
     )
 
     if task_id is None:
@@ -111,10 +114,12 @@ def launch_spec(workflow, task_id=None, take_over=False, dry_run=False):
         prompt = (
             f"You are {coordinator}, using configured cloud model {active_lead['model']}. "
             "Codex is normal primary coordinator, with explicit optional AGY High handover. " + common +
-            "Read AGENTS.md, docs/AGY-HANDOFF.md and current policy/task records. Start with "
-            "an assigned task, or identify one useful function or reproducible bug; "
-            "preserve any existing work. Use a separate AGY worker context and its recorded worker "
-            "model for implementation; do not implement and approve under the same identity. Use "
+            "Read AGENTS.md, docs/AGY-HANDOFF.md, current policy/task records and docs/CONTINUE.md if present. "
+            "Resume currently assigned tasks according to recorded dependencies; preserve existing work. "
+            "Use a separate AGY worker context and its recorded worker "
+            "model for implementation; do not implement and approve under the same identity. Keep normal "
+            "permission controls, explicit takeover and independent worker/reviewer identities exactly; "
+            "no automatic handover or quota detection. Do not change identity attestations. Use "
             f"chat_recall.workflow with --repo {canonical} and --actor {coordinator} for authority "
             "actions. Inspect the diff, actual acceptance results and exact candidate before "
             "review/integration. Commit review records before integration. Then continue useful "
@@ -149,7 +154,7 @@ def launch_spec(workflow, task_id=None, take_over=False, dry_run=False):
         raise ValueError("Assigned isolated worktree is unavailable")
     branch = workflow.git("branch", "--show-current", cwd=checkout).stdout.strip()
     if branch != task["branch"]:
-        raise ValueError("Worktree branch differs from the task brief; report to the online AGY lead")
+        raise ValueError(f"Worktree branch differs from the task brief; report to active online lead {coordinator}")
 
     if dry_run:
         return {
@@ -168,8 +173,8 @@ def launch_spec(workflow, task_id=None, take_over=False, dry_run=False):
     prompt = (
         f"You are {worker_id}, implementation worker using cloud model {identity['model']}, "
         f"under online lead {coordinator}. " + common +
-        "Work only in the assigned scope/worktree. Escalate interface/dependency/requirements "
-        "changes to the AGY lead. Do not assign, approve, integrate or change governance. "
+        f"Work only in the assigned scope/worktree. Escalate interface/dependency/requirements "
+        f"changes to active online lead {coordinator}. Do not assign, approve, integrate or change governance. "
         "Run the task checks, commit and submit actual results; never fabricate tests. Task:\n" +
         json.dumps(task, ensure_ascii=False)
     )

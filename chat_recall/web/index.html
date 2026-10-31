@@ -9,6 +9,7 @@
   <script src="/app.js" defer></script>
 </head>
 <body>
+  <a href="#query" class="skip-link">Skip to search</a>
   <header class="topbar">
     <a href="/" class="brand" aria-label="Chat Recall home"><span class="brand-mark" aria-hidden="true">↶</span><span>Chat Recall<span class="brand-sub">Your words, within reach</span></span></a>
     <nav aria-label="Archive actions">
@@ -36,11 +37,11 @@
       <div class="search-input-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" type="search" placeholder="Search exact words remembered…" autocomplete="off" spellcheck="false"><kbd aria-hidden="true">⌘ K</kbd><button class="search-submit" type="submit">Search <span aria-hidden="true">↗</span></button></div>
       <div class="search-options">
         <fieldset class="mode-switch"><legend class="sr-only">Search mode</legend><label><input type="radio" name="mode" value="exact" checked><span>Exact words</span></label><label><input type="radio" name="mode" value="smart"><span>Smart search</span></label></fieldset>
-        <div class="filters"><label class="case-filter"><input id="case-sensitive" type="checkbox"> Match case</label><label><span class="sr-only">Speaker</span><select id="role"><option value="">All speakers</option><option value="user">My messages</option><option value="assistant">AI replies</option></select></label><label><span class="sr-only">Account</span><select id="account"><option value="">All accounts</option></select></label></div>
+        <div class="filters"><label class="case-filter"><input id="case-sensitive" type="checkbox"> Match case</label><label for="role"><span class="sr-only">Speaker</span><select id="role"><option value="">All speakers</option><option value="user">My messages</option><option value="assistant">AI replies</option></select></label><label for="account"><span class="sr-only">Account</span><select id="account"><option value="">All accounts</option></select></label></div>
       </div>
     </form>
 
-    <div class="archive-status" aria-live="polite"><span id="archive-count">Loading archive…</span><div class="semantic-controls"><span id="semantic-status">Checking search readiness…</span><button id="index-semantics" type="button" hidden>Index meaning</button></div></div>
+    <div class="archive-status" aria-live="polite"><span id="archive-count">Loading archive…</span><div class="semantic-controls"><span id="semantic-status">Checking search readiness…</span><button id="index-semantics" type="button" hidden>Index meaning</button><button id="pause-enrichment" type="button" class="quiet-button" hidden>Pause</button></div></div>
     <p id="mode-note" class="mode-note">Exact words finds exhaustive matching messages and counts. Capitalization is ignored unless “Match case” is enabled.</p>
     <label id="cloud-option" class="cloud-option" hidden><input id="cloud-rerank" type="checkbox"> Cloud rerank <span>Send this query and selected candidate passages to the configured cloud provider.</span></label>
     <div id="notice" class="notice" role="status" hidden></div>

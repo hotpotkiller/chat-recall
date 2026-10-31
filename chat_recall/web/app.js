@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { query: "", mode: "exact", offset: 0, limit: 12, total: 0, results: [], selected: null, token: "", request: 0, contextRequest: 0, semanticAvailable: false, cloudAvailable: false };
+const state = { query: "", mode: "exact", offset: 0, limit: 12, total: 0, results: [], selected: null, selectedIndex: -1, token: "", request: 0, contextRequest: 0, statusRequest: 0, semanticAvailable: false, cloudAvailable: false, enrichControlsVersion: 0, currentJobId: null, enrichCursor: null, enrichAction: "idle", activeModelId: null };
 let searchTimer;
 let semanticTimer;
 
@@ -93,8 +93,22 @@ function emptyState(title, description, examples = false) {
 
 function semanticText(semantic, totalMessages) {
   if (!semantic || typeof semantic !== "object") return "Semantic indexing not configured";
+  if (semantic.coverage && typeof semantic.coverage === "object") {
+    if (!semantic.configured) return "Meaning search not configured · keyword search available";
+    if (!semantic.model_id) return "Meaning search identity and coverage pending · keyword search available";
+    const current = Number(semantic.coverage.current || 0);
+    const eligible = Number(semantic.coverage.eligible || 0);
+    if (current > 0) {
+      if (eligible > 0 && current < eligible) {
+        return `${current.toLocaleString()} of ${eligible.toLocaleString()} messages ready for meaning search (partial)`;
+      }
+      return `${current.toLocaleString()} messages ready for meaning search`;
+    }
+    return "Meaning search not ready · index the configured model";
+  }
   if (Array.isArray(semantic.models)) {
-    if (!semantic.configured || !semantic.model_id) return "Meaning search not configured · keyword search available";
+    if (!semantic.configured) return "Meaning search not configured · keyword search available";
+    if (!semantic.model_id) return "Meaning search identity and coverage pending · keyword search available";
     const selected = semantic.models.find((model) => model.model_id === semantic.model_id);
     const indexed = Number(selected?.indexed_messages || 0);
     const vectors = Number(selected?.vectors || 0);
@@ -118,12 +132,33 @@ function semanticText(semantic, totalMessages) {
     }
     return "Meaning search ready";
   }
+  if (!semantic.configured) return "Meaning search not configured · keyword search available";
+  if (!semantic.model_id) return "Meaning search identity and coverage pending · keyword search available";
   return semantic.reason || semantic.message || "Meaning search not ready · keyword fallback available";
 }
 
-function semanticJobText(job, semantic, totalMessages) {
+function semanticJobText(job, semantic, totalMessages, selectedAccount) {
+  const scopeObj = job?.scope ?? job?.report?.scope ?? null;
+  let scopeSuffix = "";
+  if (scopeObj && typeof scopeObj === "object") {
+    const acc = scopeObj.account_id;
+    if (typeof acc === "string" && acc.trim()) {
+      scopeSuffix = ` (${acc.trim()})`;
+    } else {
+      scopeSuffix = " (all)";
+    }
+  }
   if (job?.state === "running") {
-    return "Background meaning indexing in progress";
+    return `Background meaning indexing in progress${scopeSuffix}`;
+  }
+  if (job?.state === "pausing") {
+    return `Stopping meaning indexing after current request…${scopeSuffix}`;
+  }
+  if (job?.state === "paused") {
+    return `Meaning indexing paused${scopeSuffix}`;
+  }
+  if (job?.report?.pass_exhausted && Number(job?.report?.remaining || 0) > 0) {
+    return "Some passages need attention";
   }
   if (job?.state === "partial" || job?.state === "failed") {
     const first = job?.report?.errors?.[0];
@@ -154,29 +189,122 @@ function semanticJobText(job, semantic, totalMessages) {
   return semanticText(semantic, totalMessages);
 }
 
+function cursorMatchesScope(cursor, accountId, modelId) {
+  if (!cursor || typeof cursor !== "object") return false;
+  const cursorAcc = cursor.account_id || "";
+  const targetAcc = accountId || "";
+  if (cursorAcc !== targetAcc) return false;
+  if (typeof modelId !== "string" || !modelId.trim()) return false;
+  if (typeof cursor.model_id !== "string" || !cursor.model_id.trim()) return false;
+  if (cursor.model_id !== modelId) return false;
+  if (cursor.generate_topics !== false) return false;
+  return true;
+}
+
 async function refreshStatus() {
-  const status = await request("/api/status");
+  const reqSeq = ++state.statusRequest;
+  const capturedAccount = $("account")?.value || "";
+  const statusUrl = capturedAccount ? `/api/status?account_id=${encodeURIComponent(capturedAccount)}` : "/api/status";
+  const status = await request(statusUrl);
+  if (reqSeq !== state.statusRequest) return status;
+  if (($("account")?.value || "") !== capturedAccount) return status;
+
   const conversations = Number(status.conversations || 0), messages = Number(status.messages || 0);
   $("archive-count").textContent = `${conversations.toLocaleString()} conversations · ${messages.toLocaleString()} original messages`;
   const job = status.semantic_job || {};
-  const semantic = status.semantic || status.semantic_index;
-  $("semantic-status").textContent = semanticJobText(job, semantic, messages);
+  const semantic = status.semantic || status.semantic_index || {};
+  state.currentJobId = job.job_id || null;
+  state.activeModelId = (typeof semantic.model_id === "string" && semantic.model_id.trim()) ? semantic.model_id.trim() : null;
+
+  const jobAccount = job.scope?.account_id ?? job.report?.scope?.account_id ?? "";
+  const isSameAccount = (jobAccount || "") === capturedAccount;
+  const cursor = job.report?.next_cursor;
+  if (cursor && isSameAccount && cursorMatchesScope(cursor, capturedAccount, semantic.model_id)) {
+    state.enrichCursor = cursor;
+  } else {
+    state.enrichCursor = null;
+  }
+
+  $("semantic-status").textContent = semanticJobText(job, semantic, messages, capturedAccount);
   const running = job.state === "running";
-  $("index-semantics").hidden = !state.semanticAvailable;
-  $("index-semantics").disabled = !state.semanticAvailable || running;
-  $("index-semantics").textContent = running
-    ? "Indexing meaning…"
-    : (job.state === "partial" || job.state === "failed")
-    ? "Retry indexing"
-    : job.report?.remaining > 0
-    ? "Index next batch"
-    : "Index meaning";
+  const pausing = job.state === "pausing";
+  const paused = job.state === "paused";
+
+  const controlsEnabled = state.enrichControlsVersion >= 1;
+  const pauseBtn = $("pause-enrichment");
+  if (pauseBtn) {
+    if (controlsEnabled && (running || pausing)) {
+      pauseBtn.hidden = false;
+      pauseBtn.disabled = pausing;
+      pauseBtn.textContent = pausing ? "Stopping after current request…" : "Pause";
+      const scopeObj = job?.scope ?? job?.report?.scope ?? null;
+      let targetLabel = "";
+      if (scopeObj && typeof scopeObj === "object") {
+        const acc = scopeObj.account_id;
+        targetLabel = (typeof acc === "string" && acc.trim()) ? acc.trim() : "all accounts";
+      } else if (capturedAccount) {
+        targetLabel = capturedAccount;
+      }
+      pauseBtn.setAttribute("aria-label", targetLabel ? `Pause meaning indexing for ${targetLabel}` : "Pause meaning indexing");
+    } else {
+      pauseBtn.hidden = true;
+    }
+  }
+
+  const indexBtn = $("index-semantics");
+  indexBtn.hidden = !state.semanticAvailable;
+
+  if (running) {
+    state.enrichAction = "running";
+    indexBtn.disabled = true;
+    indexBtn.textContent = "Indexing meaning…";
+  } else if (pausing) {
+    state.enrichAction = "pausing";
+    indexBtn.disabled = true;
+    indexBtn.textContent = "Pausing…";
+  } else if (paused && isSameAccount && state.enrichCursor) {
+    state.enrichAction = "resume";
+    indexBtn.disabled = !state.semanticAvailable;
+    indexBtn.textContent = "Resume";
+  } else if (paused && isSameAccount) {
+    const hasRemaining = Number(job.report?.remaining || 0) > 0 || Number(semantic.coverage?.pending || 0) > 0;
+    state.enrichAction = hasRemaining ? "index_next" : "index";
+    indexBtn.disabled = !state.semanticAvailable;
+    indexBtn.textContent = hasRemaining ? "Index next batch" : "Index meaning";
+  } else if (isSameAccount && job.report?.pass_exhausted && Number(job.report?.remaining || 0) > 0) {
+    state.enrichAction = "retry_remaining";
+    indexBtn.disabled = !state.semanticAvailable;
+    indexBtn.textContent = "Retry remaining";
+  } else if (isSameAccount && (job.state === "partial" || job.state === "failed")) {
+    state.enrichAction = "retry_indexing";
+    indexBtn.disabled = !state.semanticAvailable;
+    indexBtn.textContent = "Retry indexing";
+  } else if (isSameAccount && Number(job.report?.remaining || 0) > 0) {
+    state.enrichAction = state.enrichCursor ? "resume" : "index_next";
+    indexBtn.disabled = !state.semanticAvailable;
+    indexBtn.textContent = state.enrichCursor ? "Resume" : "Index next batch";
+  } else {
+    state.enrichAction = "index";
+    indexBtn.disabled = !state.semanticAvailable;
+    indexBtn.textContent = "Index meaning";
+  }
+
+  if (!controlsEnabled && capturedAccount) {
+    indexBtn.disabled = true;
+    indexBtn.title = "Account-scoped indexing is not supported by this server version. Update server or select “All accounts”.";
+  } else {
+    indexBtn.removeAttribute("title");
+  }
+
   clearTimeout(semanticTimer);
-  if (running) semanticTimer = setTimeout(() => refreshStatus().catch((error) => notice(error.message, true)), 1800);
+  if (running || pausing) {
+    semanticTimer = setTimeout(() => refreshStatus().catch((error) => notice(error.message, true)), 1800);
+  }
+
   const previous = $("account").value;
   const sources = Array.isArray(status.sources) ? status.sources : [];
   const accounts = [...new Set(sources.map((source) => typeof source === "object" ? source.account_id : null).filter(Boolean))];
-  $("account").replaceChildren(new Option("All accounts", ""), ...accounts.map((account) => new Option(account, account)));
+  $("account").replaceChildren(new Option("All accounts", ""), ...accounts.map((acc) => new Option(acc, acc)));
   if (accounts.includes(previous)) $("account").value = previous;
   if (!messages && !$("query").value.trim()) emptyState("Your archive starts here.", "Import an extracted ChatGPT JSON export. Your original messages stay on this computer; repeated imports update the same archive.");
   return status;
@@ -185,6 +313,7 @@ async function refreshStatus() {
 function resetContextViewer() {
   ++state.contextRequest;
   state.selected = null;
+  state.selectedIndex = -1;
   $("context-placeholder").hidden = false;
   $("context-content").hidden = true;
   $("context-title").textContent = "";
@@ -397,6 +526,7 @@ async function runSearch(reset = true) {
 async function openContext(result, index) {
   const generation = ++state.contextRequest;
   state.selected = result;
+  state.selectedIndex = typeof index === "number" ? index : state.results.indexOf(result);
   document.querySelectorAll(".result-card").forEach((card, i) => {
     const isSelected = i === index;
     card.classList.toggle("selected", isSelected);
@@ -412,8 +542,9 @@ async function openContext(result, index) {
   $("original-link").hidden = true;
   $("messages").replaceChildren(element("div", "loading", "Loading the original exchange…"));
   $("context-pane").classList.add("mobile-open");
+  const prefersReduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (typeof $("context-pane").scrollIntoView === "function") {
-    $("context-pane").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("context-pane").scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
   }
   if (typeof $("context-pane").focus === "function") {
     $("context-pane").focus();
@@ -494,8 +625,40 @@ async function openContext(result, index) {
   }
 }
 
-function closeContext() {
+function isFocusInsideContextPane(el) {
+  const target = el || document.activeElement;
+  const pane = $("context-pane");
+  if (!target || !pane) return false;
+  if (typeof pane.contains === "function") {
+    try { if (pane.contains(target)) return true; } catch {}
+  }
+  let curr = target;
+  while (curr) {
+    if (curr === pane || curr.id === "context-pane") return true;
+    curr = curr.parentNode;
+  }
+  return false;
+}
+
+function closeContext(event) {
+  const active = document.activeElement;
+  const eventTarget = event?.target || event?.currentTarget;
+  const focusOriginatedInside = isFocusInsideContextPane(active) || (eventTarget && isFocusInsideContextPane(eventTarget));
+
+  let targetToFocus = null;
+  if (focusOriginatedInside && state.selected !== null) {
+    const idx = state.selectedIndex >= 0 ? state.selectedIndex : state.results.indexOf(state.selected);
+    const card = idx >= 0
+      ? (document.querySelector(`.result-card[data-index="${idx}"]`) || document.querySelectorAll(".result-card")[idx])
+      : document.querySelector(".result-card.selected");
+    targetToFocus = card?.querySelector(".result-title") || card?.querySelector(".open-conversation-btn") || card?.querySelector("button, a");
+  }
+
   resetContextViewer();
+
+  if (targetToFocus && typeof targetToFocus.focus === "function") {
+    targetToFocus.focus();
+  }
 }
 
 async function copyText(text, button, confirmation) {
@@ -569,7 +732,12 @@ document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEven
     runSearch(true);
   }
 }));
-for (const id of ["role", "account", "case-sensitive", "cloud-rerank"]) $(id).addEventListener("change", () => runSearch(true));
+$("account").addEventListener("change", () => {
+  state.enrichCursor = null;
+  refreshStatus().catch((e) => notice(e.message, true));
+  runSearch(true);
+});
+for (const id of ["role", "case-sensitive", "cloud-rerank"]) $(id).addEventListener("change", () => runSearch(true));
 document.querySelectorAll("[data-query]").forEach((button) => button.addEventListener("click", () => { $("query").value = button.dataset.query; runSearch(true); }));
 $("previous-page").addEventListener("click", () => { state.offset = Math.max(0, state.offset - state.limit); runSearch(false); });
 $("next-page").addEventListener("click", () => { state.offset += state.limit; runSearch(false); });
@@ -577,14 +745,80 @@ $("close-context").addEventListener("click", closeContext);
 $("copy-message").addEventListener("click", () => { if (state.selected) copyText(state.selected.text, $("copy-message"), "Copied"); });
 $("pair-button").addEventListener("click", () => { $("pair-panel").hidden = !$("pair-panel").hidden; $("pair-button").setAttribute("aria-expanded", String(!$("pair-panel").hidden)); });
 $("copy-token").addEventListener("click", () => copyText(state.token, $("copy-token"), "Copied"));
+
+const pauseBtn = $("pause-enrichment");
+if (pauseBtn) {
+  pauseBtn.addEventListener("click", async () => {
+    if (!state.currentJobId) return;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = "Stopping after current request…";
+    $("index-semantics").disabled = true;
+    $("index-semantics").textContent = "Pausing…";
+    state.enrichAction = "pausing";
+    try {
+      await request("/api/enrich/pause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${state.token}` },
+        body: JSON.stringify({ job_id: state.currentJobId }),
+      });
+      notice("Stopping meaning indexing after current request…");
+      await refreshStatus();
+    } catch (error) {
+      notice(error.message, true);
+      pauseBtn.disabled = false;
+      pauseBtn.textContent = "Pause";
+      $("index-semantics").disabled = false;
+    }
+  });
+}
+
 $("index-semantics").addEventListener("click", async () => {
   if (!state.semanticAvailable) return;
+  if (state.enrichAction === "running" || state.enrichAction === "pausing") return;
+
+  const selectedAccount = $("account").value;
+  if (state.enrichControlsVersion < 1 && selectedAccount) {
+    notice("Account-scoped indexing requires updating the server. Select “All accounts” to use compatible global indexing.", true);
+    return;
+  }
+
   $("index-semantics").disabled = true;
+
+  if (state.enrichAction === "retry_remaining" || state.enrichAction === "retry_indexing" || state.enrichAction === "index" || state.enrichAction === "index_next") {
+    state.enrichCursor = null;
+  }
+
+  if (state.enrichCursor && !cursorMatchesScope(state.enrichCursor, selectedAccount, state.activeModelId)) {
+    state.enrichCursor = null;
+  }
+
+  const payload = {
+    limit: 100,
+    generate_topics: false,
+  };
+
+  if (state.enrichControlsVersion >= 1) {
+    if (selectedAccount) {
+      payload.account_id = selectedAccount;
+    }
+    if (state.enrichCursor) {
+      payload.after_cursor = state.enrichCursor;
+    }
+  }
+
   try {
-    await request("/api/enrich", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${state.token}` }, body: JSON.stringify({ limit: 100, generate_topics: false }) });
+    const job = await request("/api/enrich", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${state.token}` },
+      body: JSON.stringify(payload),
+    });
+    if (job?.job_id) state.currentJobId = job.job_id;
     notice("Meaning indexing started for up to 100 changed passages. No models are downloaded by this action.");
     await refreshStatus();
-  } catch (error) { notice(error.message, true); $("index-semantics").disabled = false; }
+  } catch (error) {
+    notice(error.message, true);
+    $("index-semantics").disabled = false;
+  }
 });
 $("import-button").addEventListener("click", () => { $("import-report").textContent = ""; $("import-dialog").showModal(); });
 $("close-import").addEventListener("click", () => $("import-dialog").close());
@@ -609,15 +843,16 @@ $("import-form").addEventListener("submit", async (event) => {
 document.addEventListener("keydown", (event) => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable;
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" || event.key === "/" && !typing) { event.preventDefault(); $("query").focus(); $("query").select(); }
-  if (event.key === "Escape" && !$("import-dialog").open) closeContext();
+  if (event.key === "Escape" && !$("import-dialog").open) closeContext(event);
 });
 
 (async function start() {
   try {
-    const [config, status] = await Promise.all([request("/api/config"), refreshStatus()]);
+    const config = await request("/api/config");
     state.token = config.token || config.import_token || "";
     state.semanticAvailable = config.semantic_available === true;
     state.cloudAvailable = config.cloud_rerank_available === true;
+    state.enrichControlsVersion = Number(config.enrich_controls_version || 0);
     const smartRadio = document.querySelector('input[name="mode"][value="smart"]');
     const exactRadio = document.querySelector('input[name="mode"][value="exact"]');
     if (!state.semanticAvailable) {
@@ -634,8 +869,8 @@ document.addEventListener("keydown", (event) => {
     } else {
       if (smartRadio) smartRadio.disabled = false;
     }
+    const status = await refreshStatus();
     $("index-semantics").hidden = !state.semanticAvailable;
-    $("index-semantics").disabled = !state.semanticAvailable || status?.semantic_job?.state === "running";
     $("cloud-option").hidden = !state.cloudAvailable;
     $("cloud-rerank").disabled = true;
     $("pair-endpoint").value = location.origin;

@@ -3,10 +3,12 @@
 All public fixtures and benchmark corpora are synthetic. No personal history or
 provider credentials are needed for the default checks.
 
-The clean release snapshot passed 146 Python unit/integration tests, seven
-JavaScript syntax checks and all three offline JavaScript behavior suites before
-publication. Its small default evaluation retrieved all 60 expected exact queries.
-These local release checks do not load an embedding model or contact a chat account.
+The verified implementation passed 272 Python tests, seven JavaScript syntax
+checks and all three offline JavaScript behavior suites. The default Exact
+evaluation retrieved all 60 expected queries. Eleven independent offline
+cancellation/source-bound checks and the integrated HTTP pause/account/resume
+flow passed. Actual desktop 1440 px/mobile 390 px browser navigation used synthetic
+chats and a fake provider; real-model quality was evaluated separately.
 
 ```sh
 make check
@@ -49,9 +51,9 @@ optional real-model experiment is not part of the default checks.
 CI is defined in `.github/workflows/checks.yml`. Its actual status is visible on
 the repository's Actions tab; a definition alone is not a passing run.
 
-## Optional Smart evaluation
+## Historical conversation-level Smart evaluation
 
-The current real-model synthetic run used qwen3-embedding:0.6b on 18 conversations
+The legacy v2 real-model synthetic run used qwen3-embedding:0.6b on 18 conversations
 and 64 queries. Target recall at 3 was 48/48; MRR at 10 was 0.9792. The 16 fresh
 holdout queries achieved 8/8 target recall and MRR 0.9375; one unrelated holdout
 query produced a keyword-only suggestion, while none produced a semantic one.
@@ -66,5 +68,34 @@ See [Smart design and reproduction](smart-search.md),
 [raw relevance results](evaluation-smart-v2.json) and
 [allocation/residency results](evaluation-smart-memory.json). The cutoff was
 chosen on the calibration subset and frozen before the fresh holdout run.
-This small synthetic evaluation does not establish personal-history relevance.
+This was conversation-level relevance, not passage-level correctness. Its calibration and
+holdout queries shared conversation identities, so the holdout was not conversation-disjoint.
+These figures do not establish passage quality or personal-history relevance.
 Default checks remain offline and Smart/importing remain off by default.
+
+## Passage-level evaluation
+
+The final actual `qwen3-embedding:0.6b` run completed all 64 queries with zero
+source/branch/context errors. **The quality gate failed.** Passage Recall@3
+was 42/48 overall and 13/16 on the conversation-disjoint holdout. MRR@10 was
+0.7569 overall and 0.6562 on holdout. Unrelated-query any-result false positives
+were 2/16 overall and 2/8 on holdout. The gate requires Recall@3 >= 0.85,
+MRR@10 >= 0.80 and unrelated FP <= 0.20, globally and on holdout.
+
+The earlier v3 baseline was 40/48 overall,12/16 holdout, holdout MRR0.6375 and
+holdout unrelated FP4/8. Gains do not imply that Smart is ready as a default.
+No gold labels or cutoffs were changed after the final holdout run.
+
+Evaluator peak RSS70.5 MiB excludes the separate Ollama server. Sampled model
+residency0.74 GiB is not model process RSS or a total-memory peak; it unloaded
+afterward. Query median 714 ms and p95 743 ms are single-run synthetic timings.
+See [the measured report and limits](smart-search.md#current-measured-result-v3),
+[raw quality](evaluation-passage-v3-final.json) and
+[memory observations](evaluation-passage-v3-memory.json).
+
+`python3 scripts/evaluate_passages.py` runs the offline lexical structure check.
+The explicit `--ollama --require-quality` run uses an already installed local
+model and correctly exits2 when the quality gate fails. Default checks never
+load it. `scripts/calibrate_passages.py --ollama` indexes/queries calibration
+conversations only; its cached-sweep timings are distinguished from actual
+inference and it cannot claim holdout success.

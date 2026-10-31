@@ -1,0 +1,908 @@
+{
+  "benchmark": "passage-evaluation-v3",
+  "synthetic": true,
+  "fixture_hash": "3b85ba810a58ace96ec658d3549ceb867b070a11838bb086873b48d57fa0731e",
+  "fixture_corpus_version": "passage-evaluation-v3",
+  "mode": "ollama-hybrid",
+  "semantic_evaluated": true,
+  "model_id": "ollama:qwen3-embedding:0.6b",
+  "minimum_similarity": 0.5,
+  "limits_and_disclaimer": "Synthetic-only benchmark with small bounded corpus. Passing metrics do not establish personal user history relevance or quality.",
+  "import": {
+    "conversations": 12,
+    "messages": 49,
+    "skipped": 0,
+    "errors": [],
+    "namespaces": [
+      "chatgpt:default"
+    ]
+  },
+  "enrichment": {
+    "processed": 49,
+    "vectors": 53,
+    "topics": 0,
+    "errors": [],
+    "model_id": "ollama:qwen3-embedding:0.6b",
+    "remaining": 0
+  },
+  "metrics": {
+    "expected_queries_total": 64,
+    "completed_queries_total": 64,
+    "semantic_used_count": 64,
+    "positive_queries": 48,
+    "positive_semantic_used_count": 48,
+    "passage_recall_at_3": 0.8333,
+    "passage_mrr_at_10": 0.6986,
+    "message_recall_at_3": 0.875,
+    "message_mrr_at_10": 0.7264,
+    "conversation_recall_at_3": 0.9375,
+    "conversation_mrr_at_10": 0.926,
+    "unrelated_queries": 16,
+    "unrelated_semantic_used_count": 16,
+    "unrelated_semantic_false_positive_rate": 0.1875,
+    "unrelated_any_result_false_positive_rate": 0.375,
+    "unrelated_any_result_false_positive_count": 6,
+    "context_identity_errors": 0,
+    "split_results": {
+      "calibration": {
+        "expected_positive_count": 32,
+        "completed_positive_count": 32,
+        "positive_semantic_used_count": 32,
+        "passage_recall_at_3": 0.875,
+        "passage_mrr_at_10": 0.7292,
+        "message_recall_at_3": 0.9375,
+        "message_mrr_at_10": 0.7708,
+        "conversation_recall_at_3": 0.9688,
+        "conversation_mrr_at_10": 0.9688,
+        "expected_unrelated_count": 8,
+        "completed_unrelated_count": 8,
+        "unrelated_semantic_used_count": 8,
+        "unrelated_semantic_false_positive_rate": 0.125,
+        "unrelated_any_result_false_positive_rate": 0.25
+      },
+      "holdout": {
+        "expected_positive_count": 16,
+        "completed_positive_count": 16,
+        "positive_semantic_used_count": 16,
+        "passage_recall_at_3": 0.75,
+        "passage_mrr_at_10": 0.6375,
+        "message_recall_at_3": 0.75,
+        "message_mrr_at_10": 0.6375,
+        "conversation_recall_at_3": 0.875,
+        "conversation_mrr_at_10": 0.8406,
+        "expected_unrelated_count": 8,
+        "completed_unrelated_count": 8,
+        "unrelated_semantic_used_count": 8,
+        "unrelated_semantic_false_positive_rate": 0.25,
+        "unrelated_any_result_false_positive_rate": 0.5
+      }
+    },
+    "query_timings_ms": {
+      "median": 643.64,
+      "p95": 1165.734
+    }
+  },
+  "gates": {
+    "structure_passed": true,
+    "quality_passed": false,
+    "holdout_passed": false,
+    "rules": {
+      "require_all_queries_semantic_used": true,
+      "min_passage_recall_at_3": 0.85,
+      "min_passage_mrr_at_10": 0.8,
+      "max_unrelated_any_result_fp_rate": 0.2,
+      "max_holdout_unrelated_any_result_fp_rate": 0.2,
+      "max_context_identity_errors": 0,
+      "max_import_errors": 0,
+      "max_enrichment_errors": 0,
+      "max_query_errors": 0,
+      "max_semantic_failures": 0
+    }
+  },
+  "semantic_failures": [],
+  "query_errors": [],
+  "positive_results": [
+    {
+      "id": "q-calib-pos-1",
+      "split": "calibration",
+      "query": "the cooking advice for making dinner taste less sharp without sweetening it",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 937.88,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-2",
+      "split": "calibration",
+      "query": "oven roasting tomatoes and adding baking soda or dairy for soup acidity",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 644.21,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-3",
+      "split": "calibration",
+      "query": "where did I describe dough refusing to rise in a cold kitchen",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 1734.92,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-4",
+      "split": "calibration",
+      "query": "using unheated oven interior light as a warm dough proofing box",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 1216.86,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-5",
+      "split": "calibration",
+      "query": "the exception we discussed for a prepaid room after a family emergency",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 639.0,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-6",
+      "split": "calibration",
+      "query": "family medical emergency hotel cancellation voucher request",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 970.98,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-7",
+      "split": "calibration",
+      "query": "where did you give the go-ahead to send the accommodation request",
+      "ranks": {
+        "passage_rank": null,
+        "message_rank": null,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 1163.69,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-8",
+      "split": "calibration",
+      "query": "confirming whether to send the nonrefundable room exception form now",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 917.02,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-9",
+      "split": "calibration",
+      "query": "find my question about the phone backup stopping because online storage was full",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 639.63,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-10",
+      "split": "calibration",
+      "query": "disabling app video backups and deleting old phone cloud archives",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 619.79,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-11",
+      "split": "calibration",
+      "query": "the explanation for why my earpieces briefly go silent while walking outside",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 625.85,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-12",
+      "split": "calibration",
+      "query": "switching bluetooth codec to stable connection mode to stop audio drops",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 882.48,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-13",
+      "split": "calibration",
+      "query": "what we agreed would make my computer responsive with many things open",
+      "ranks": {
+        "passage_rank": null,
+        "message_rank": 3,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 880.8,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-14",
+      "split": "calibration",
+      "query": "disabling startup launch daemons and enabling browser tab memory saver",
+      "ranks": {
+        "passage_rank": null,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 961.12,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-15",
+      "split": "calibration",
+      "query": "the question I asked about leaving my laptop connected at the desk",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 661.92,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-16",
+      "split": "calibration",
+      "query": "does keeping laptop at 100 percent charge degrade lithium ion capacity",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 638.69,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-17",
+      "split": "calibration",
+      "query": "when did I ask how to tell whether the balcony plants needed watering",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 649.63,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-18",
+      "split": "calibration",
+      "query": "preventing potted plant root rot and checking container drainage holes",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 633.37,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-19",
+      "split": "calibration",
+      "query": "the plant-feeding options we discussed with a curious cat around",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 657.85,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-20",
+      "split": "calibration",
+      "query": "using liquid kelp extract and worm castings for feline safe plant food",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 1059.04,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-21",
+      "split": "calibration",
+      "query": "the greener commute option we considered along the protected riverside path",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 646.21,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-22",
+      "split": "calibration",
+      "query": "reasons to take city bus to stay dry in rain and avoid bridge traffic",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 639.27,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-23",
+      "split": "calibration",
+      "query": "how to avoid standing at the bus stop guessing when it arrives",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 636.83,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-24",
+      "split": "calibration",
+      "query": "tracking municipal bus arrival with real time gps transit alerts",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 641.79,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-25",
+      "split": "calibration",
+      "query": "我在哪里问过换季衣服太多，家里收纳地方不够的问题",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 637.32,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-26",
+      "split": "calibration",
+      "query": "小衣柜抽屉垂直竖立折叠衣服贴标签分类规划",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 624.94,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-27",
+      "split": "calibration",
+      "query": "手机里的家庭照片太多又舍不得删，那次说怎么另存保险一点",
+      "ranks": {
+        "passage_rank": 3,
+        "message_rank": 3,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 633.13,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-28",
+      "split": "calibration",
+      "query": "两块独立机械硬盘备份手机家庭生活原图照片防损坏",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 638.27,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-29",
+      "split": "calibration",
+      "query": "上次饭煮出来黏成一团，建议我怎样调整",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 643.07,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-30",
+      "split": "calibration",
+      "query": "电饭煲煮大米饭跳闸后焖十分钟翻拌散水汽不发粘",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 625.32,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-31",
+      "split": "calibration",
+      "query": "我嫌每周吃饭花钱太多时，我们定了什么采购办法",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 627.81,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-calib-pos-32",
+      "split": "calibration",
+      "query": "大包装生鲜肉类分装冷冻与购买当季蔬菜省钱习惯",
+      "ranks": {
+        "passage_rank": null,
+        "message_rank": null,
+        "conversation_rank": null
+      },
+      "elapsed_ms": 1275.63,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-1",
+      "split": "holdout",
+      "query": "my question about the landlord keeping the deposit over ordinary carpet wear",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 972.32,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-2",
+      "split": "holdout",
+      "query": "tenancy move out photo evidence disputing normal living carpet wear",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 1005.14,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-3",
+      "split": "holdout",
+      "query": "the repair steps for water still trickling into the basin after turning it tight",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 1012.05,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-4",
+      "split": "holdout",
+      "query": "turning off under sink shutoff valves to replace dripping faucet cartridge",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 979.82,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-5",
+      "split": "holdout",
+      "query": "the exercise we picked to stop guessing where English words should be stressed",
+      "ranks": {
+        "passage_rank": null,
+        "message_rank": null,
+        "conversation_rank": 2
+      },
+      "elapsed_ms": 678.46,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-6",
+      "split": "holdout",
+      "query": "recording phone audio to practice word linking and unstressed vowels",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 640.96,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-7",
+      "split": "holdout",
+      "query": "where did I complain that yesterday's vocabulary cards were piling up",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 668.04,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-8",
+      "split": "holdout",
+      "query": "learning vocabulary with full sentence context rather than dictionary definitions",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 628.03,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-9",
+      "split": "holdout",
+      "query": "what we said to do when green tea comes out tasting unpleasantly dry and bitter",
+      "ranks": {
+        "passage_rank": 4,
+        "message_rank": 4,
+        "conversation_rank": 2
+      },
+      "elapsed_ms": 651.37,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-10",
+      "split": "holdout",
+      "query": "高山乌龙茶沸水冲泡首泡润茶后按秒递增出汤时间",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 624.86,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-11",
+      "split": "holdout",
+      "query": "the troubleshooting checklist for home drip brew that stalls and drains too slowly",
+      "ranks": {
+        "passage_rank": 5,
+        "message_rank": 5,
+        "conversation_rank": 5
+      },
+      "elapsed_ms": 629.93,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-12",
+      "split": "holdout",
+      "query": "浅烘咖啡手冲水流垂直中心绕圈控制两分钟过萃排查",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 1165.73,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-13",
+      "split": "holdout",
+      "query": "我问过带父母旅游不想走太累的那条需求",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 921.13,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-14",
+      "split": "holdout",
+      "query": "老年人去云南旅游全天包车接送午间预留客栈午休",
+      "ranks": {
+        "passage_rank": 2,
+        "message_rank": 2,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 636.16,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-15",
+      "split": "holdout",
+      "query": "getting fees back without a penalty when weather shut down transport and attractions",
+      "ranks": {
+        "passage_rank": 4,
+        "message_rank": 4,
+        "conversation_rank": 4
+      },
+      "elapsed_ms": 614.95,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    },
+    {
+      "id": "q-hold-pos-16",
+      "split": "holdout",
+      "query": "不可抗力极端天气终止旅游包车合同退还未出行费用",
+      "ranks": {
+        "passage_rank": 1,
+        "message_rank": 1,
+        "conversation_rank": 1
+      },
+      "elapsed_ms": 629.65,
+      "semantic_used": true,
+      "semantic_status": "ready"
+    }
+  ],
+  "unrelated_results": [
+    {
+      "id": "q-calib-unrel-1",
+      "split": "calibration",
+      "query": "baking sourdough rye loaf with caraway seeds and dark molasses",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 3,
+      "has_semantic_result": true,
+      "has_any_result": true,
+      "elapsed_ms": 630.64
+    },
+    {
+      "id": "q-calib-unrel-2",
+      "split": "calibration",
+      "query": "troubleshooting microwave turntable glass roller guide motor replacement",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 1,
+      "has_semantic_result": false,
+      "has_any_result": true,
+      "elapsed_ms": 1042.89
+    },
+    {
+      "id": "q-calib-unrel-3",
+      "split": "calibration",
+      "query": "winterizing swimming pool sand filter pump and chlorinator",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 674.84
+    },
+    {
+      "id": "q-calib-unrel-4",
+      "split": "calibration",
+      "query": "使用高压锅炖牛腩白萝卜汤去腥软烂技巧",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 623.13
+    },
+    {
+      "id": "q-calib-unrel-5",
+      "split": "calibration",
+      "query": "quantum entanglement bell inequality violation experimental tests",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 635.94
+    },
+    {
+      "id": "q-calib-unrel-6",
+      "split": "calibration",
+      "query": "deep sea hydrothermal vent ecosystem hydrothermal mineral chimney",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 636.97
+    },
+    {
+      "id": "q-calib-unrel-7",
+      "split": "calibration",
+      "query": "ancient Roman pozzolanic volcanic ash seawater concrete durability",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 642.79
+    },
+    {
+      "id": "q-calib-unrel-8",
+      "split": "calibration",
+      "query": "Mars rover autonomous stereo vision obstacle hazard avoidance",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 640.02
+    },
+    {
+      "id": "q-hold-unrel-1",
+      "split": "holdout",
+      "query": "修复老式机械自动上链手表发条摆轮走时偷停问题",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 630.62
+    },
+    {
+      "id": "q-hold-unrel-2",
+      "split": "holdout",
+      "query": "申请欧洲申根签证在职证明与银行流水余额盖章要求",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 632.56
+    },
+    {
+      "id": "q-hold-unrel-3",
+      "split": "holdout",
+      "query": "satellite low earth orbit inclination atmospheric aerodynamic drag",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 1,
+      "has_semantic_result": false,
+      "has_any_result": true,
+      "elapsed_ms": 630.2
+    },
+    {
+      "id": "q-hold-unrel-4",
+      "split": "holdout",
+      "query": "binary search tree left right red black node rotation rules",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 678.81
+    },
+    {
+      "id": "q-hold-unrel-5",
+      "split": "holdout",
+      "query": "installing underground sprinkler drip irrigation timer for lawn",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 3,
+      "has_semantic_result": false,
+      "has_any_result": true,
+      "elapsed_ms": 644.93
+    },
+    {
+      "id": "q-hold-unrel-6",
+      "split": "holdout",
+      "query": "claiming compensation for cancelled cruise ship shore excursion",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 1,
+      "has_semantic_result": true,
+      "has_any_result": true,
+      "elapsed_ms": 655.69
+    },
+    {
+      "id": "q-hold-unrel-7",
+      "split": "holdout",
+      "query": "clearing cache memory on smart television streaming application",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 3,
+      "has_semantic_result": true,
+      "has_any_result": true,
+      "elapsed_ms": 957.49
+    },
+    {
+      "id": "q-hold-unrel-8",
+      "split": "holdout",
+      "query": "夏天挑选成熟红瓤黑籽甜西瓜拍打听声音技巧",
+      "semantic_used": true,
+      "semantic_status": "ready",
+      "total_results": 0,
+      "has_semantic_result": false,
+      "has_any_result": false,
+      "elapsed_ms": 966.31
+    }
+  ]
+}

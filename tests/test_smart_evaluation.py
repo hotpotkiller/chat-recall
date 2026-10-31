@@ -232,6 +232,136 @@ class SmartEvaluationTests(unittest.TestCase):
         w_default = RecordingProviderWrapper(DefaultProvider())
         self.assertEqual(w_default.minimum_similarity, 0.3)
 
+    def test_recording_provider_wrapper_forwards_encoding_identity_and_methods(self):
+        from scripts.evaluate_smart import RecordingProviderWrapper
+
+        class FullSpecializedProvider:
+            model_id = "test:specialized"
+            expected_output_dimension = 1024
+            cached_identity = "test:specialized:fingerprint123"
+            query_template_version = "qwen-instruct-v1"
+            calibration_version = "provisional-v1"
+
+            def __init__(self):
+                import threading
+                self._lock = threading.RLock()
+
+            @property
+            def lock(self):
+                return self._lock
+
+            @property
+            def operation_lock(self):
+                return self._lock
+
+            def resolve_identity(self, doc_profile):
+                return self.cached_identity
+
+            def embed_query(self, query):
+                return [3.0, 4.0]
+
+            def embed_documents(self, texts):
+                return [[3.0, 4.0] for _ in texts]
+
+            def embed(self, texts):
+                return [[3.0, 4.0] for _ in texts]
+
+        prov = FullSpecializedProvider()
+        wrapper = RecordingProviderWrapper(prov)
+
+        # Forward identity and attributes
+        self.assertEqual(wrapper.resolve_identity({"version": "v1"}), "test:specialized:fingerprint123")
+        self.assertEqual(wrapper.index_id, "test:specialized:fingerprint123")
+        self.assertEqual(wrapper.cached_identity, "test:specialized:fingerprint123")
+        self.assertEqual(wrapper.expected_output_dimension, 1024)
+        self.assertEqual(wrapper.query_template_version, "qwen-instruct-v1")
+        self.assertEqual(wrapper.calibration_version, "provisional-v1")
+        self.assertIsNotNone(wrapper.lock)
+        self.assertIsNotNone(wrapper.operation_lock)
+
+        # Unresolved versioned provider: index_id must NOT fall back to display alias
+        class UnresolvedVersionedProvider:
+            model_id = "test:unresolved"
+            cached_identity = None
+            def resolve_identity(self, doc_profile):
+                return "test:unresolved:resolved"
+        w_unresolved = RecordingProviderWrapper(UnresolvedVersionedProvider())
+        self.assertTrue(callable(getattr(w_unresolved, "resolve_identity", None)))
+        self.assertIsNone(w_unresolved.cached_identity)
+        self.assertIsNone(w_unresolved.index_id)
+
+        # Legacy provider: capability and status transparency
+        class LegacyUnderlyingProvider:
+            model_id = "test:legacy-trans"
+            def embed(self, texts):
+                return [[1.0, 0.0] for _ in texts]
+        w_legacy_trans = RecordingProviderWrapper(LegacyUnderlyingProvider())
+        self.assertFalse(callable(getattr(w_legacy_trans, "resolve_identity", None)))
+        self.assertEqual(w_legacy_trans.cached_identity, "test:legacy-trans")
+        self.assertEqual(w_legacy_trans.index_id, "test:legacy-trans")
+
+        # Legacy fallback must validate provider response is list with exactly one vector
+        class EmptyLegacyProvider:
+            model_id = "test:empty-legacy"
+            def embed(self, texts):
+                return []
+        w_empty = RecordingProviderWrapper(EmptyLegacyProvider())
+        with self.assertRaises(ProviderError):
+            w_empty.embed_query("query")
+
+        class MultiLegacyProvider:
+            model_id = "test:multi-legacy"
+            def embed(self, texts):
+                return [[1.0, 0.0], [0.0, 1.0]]
+        w_multi = RecordingProviderWrapper(MultiLegacyProvider())
+        with self.assertRaises(ProviderError):
+            w_multi.embed_query("query")
+
+        # Bound provider raising internal TypeError must call provider exactly once without retry
+        class BoundProviderInternalTypeError:
+            model_id = "test:bound-err"
+            def __init__(self):
+                self.calls = 0
+            def embed_query(self, query: str, index_id: str | None = None) -> list[float]:
+                self.calls += 1
+                raise TypeError("Internal execution error")
+        b_prov = BoundProviderInternalTypeError()
+        w_b_prov = RecordingProviderWrapper(b_prov)
+        with self.assertRaises(TypeError):
+            w_b_prov.embed_query("query", index_id="some-id")
+        self.assertEqual(b_prov.calls, 1)
+        self.assertEqual(w_b_prov.embed_call_count, 1)
+
+        # Legacy provider without index_id parameter is supported and invoked cleanly
+        class LegacyNoIndexIdMock:
+            model_id = "test:legacy-no-id"
+            def __init__(self):
+                self.calls = 0
+            def embed_query(self, query: str) -> list[float]:
+                self.calls += 1
+                return [0.6, 0.8]
+        leg_prov = LegacyNoIndexIdMock()
+        w_leg = RecordingProviderWrapper(leg_prov)
+        leg_vec = w_leg.embed_query("legacy query")
+        self.assertEqual(leg_vec, [0.6, 0.8])
+        self.assertEqual(leg_prov.calls, 1)
+        self.assertEqual(w_leg.embed_call_count, 1)
+
+        # embed_query records normalized query vector
+        self.assertIsNone(wrapper.last_query_vector)
+        q_vec = wrapper.embed_query("search query")
+        self.assertEqual(q_vec, [0.6, 0.8])
+        self.assertEqual(wrapper.last_query_vector, [0.6, 0.8])
+        self.assertEqual(wrapper.embed_call_count, 1)
+
+        # embed_documents forwards correctly without altering query vector
+        wrapper.reset_query_vector()
+        self.assertIsNone(wrapper.last_query_vector)
+        doc_vecs = wrapper.embed_documents(["doc 1", "doc 2"])
+        self.assertEqual(len(doc_vecs), 2)
+        self.assertEqual(doc_vecs[0], [3.0, 4.0])
+        self.assertIsNone(wrapper.last_query_vector)
+
     def test_default_lexical_split_results_and_no_fake_quality(self):
         args = MagicMock()
         args.ollama = False

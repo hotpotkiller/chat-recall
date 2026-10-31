@@ -26,9 +26,9 @@
       "integrator"
     ]
   },
-  "agy-fast-v1": {
+  "agy-worker": {
     "provider": "Google",
-    "model": "gemini-3.8-flash-low",
+    "model": "gemini-3.8-flash-high",
     "mode": "online",
     "tool": "Antigravity CLI",
     "account": "maintainer-configured online account",

@@ -19,8 +19,12 @@ run relevant checks, then review the diff and results before merging. Preserve
 source text and branch identity. CI repeats Python, JavaScript and offline
 evaluation checks against the public source.
 
-The optional `chat_recall.workflow` CLI records bounded tasks, actual handoffs,
-online reviews and integration decisions. Its identity labels are attestations.
+The optional `chat_recall.workflow` CLI is a custom Python-standard-library
+coordination layer, not LangGraph, CrewAI or an imported agent framework. The
+online model makes planning decisions; the CLI records bounded tasks, executes
+acceptance commands, and gates handoffs, reviews and integration. It does not
+itself call a model API or run a persistent autonomous orchestrator. Its model
+identity labels are operator attestations, not proof of remote inference.
 This release includes clean starter configuration; personal operator history and
 machine-specific task records are intentionally absent.
 
